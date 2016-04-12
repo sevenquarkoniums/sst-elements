@@ -15,6 +15,7 @@
 #include <sst/core/subcomponent.h>
 #include <sst/core/interfaces/simpleNetwork.h>
 #include <sst/core/threadsafe.h>
+#include <sst/core/timeLord.h>
 
 using namespace std;
 using namespace SST::Interfaces;
@@ -25,8 +26,20 @@ private:
     typedef set<SDPair> pairSet_t;
     pairSet_t *uniquePaths;
     string outFileName;
+    SST::TimeConverter* nanoTimeConv;
+    uint64_t lastNew;
+    Statistic<uint64_t>*  circArrival;
+    Statistic<uint64_t>*  setSize;
+    bool isFirst; // is the first port in the router
 
-    typedef map<string, pairSet_t*> setMap_t;
+    // per router data
+    struct routerData {
+        pairSet_t *uniquePaths;
+        Statistic<uint64_t> *circArrival;
+        Statistic<uint64_t> *setSize;
+    };
+    
+    typedef map<string, routerData> setMap_t;
     // Map which makes sure that all the inspectors on one router use
     // the same pairSet. This structure can be accessed by multiple
     // threads during intiailize, so it needs to be protected.
