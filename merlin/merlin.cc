@@ -696,8 +696,8 @@ static const ElementInfoSubComponent subcomponents[] = {
       "Used to count the number of network circuits (as in 'circuit switched' circuits)", 
       NULL,
       load_circ_network_inspector,
-      NULL,
-      NULL,
+      circ_network_params,
+      circ_network_statistics,
       "SST::Interfaces::SimpleNetwork::NetworkInspector"
       },
     { "xbar_arb_rr",

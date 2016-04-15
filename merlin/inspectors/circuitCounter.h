@@ -16,6 +16,7 @@
 #include <sst/core/interfaces/simpleNetwork.h>
 #include <sst/core/threadsafe.h>
 #include <sst/core/timeLord.h>
+#include <sst/core/element.h>
 
 using namespace std;
 using namespace SST::Interfaces;
@@ -24,12 +25,19 @@ class CircNetworkInspector : public SimpleNetwork::NetworkInspector {
 private:
     typedef pair<SimpleNetwork::nid_t, SimpleNetwork::nid_t> SDPair;
     typedef set<SDPair> pairSet_t;
+    typedef list<SDPair> pairList_t;
+    typedef map<SDPair, pairList_t::iterator> circMap_t;
     pairSet_t *uniquePaths;
     string outFileName;
+    int maxCircuits;
     SST::TimeConverter* nanoTimeConv;
     uint64_t lastNew;
     Statistic<uint64_t>*  circArrival;
     Statistic<uint64_t>*  setSize;
+    Statistic<uint64_t>*  lruSpills;
+    int* spillCount;
+    pairList_t *lruList;
+    map<SDPair, pairList_t::iterator> *circMap;
     bool isFirst; // is the first port in the router
 
     // per router data
@@ -37,6 +45,10 @@ private:
         pairSet_t *uniquePaths;
         Statistic<uint64_t> *circArrival;
         Statistic<uint64_t> *setSize;
+        Statistic<uint64_t> *lruSpills;
+        int *spillCount;
+        pairList_t *lruList;
+        map<SDPair, pairList_t::iterator> *circMap;
     };
     
     typedef map<string, routerData> setMap_t;
@@ -52,6 +64,19 @@ public:
     void finish();
 
     void inspectNetworkData(SimpleNetwork::Request* req);
+};
+
+static const SST::ElementInfoParam circ_network_params[] = {
+    { "output_file", "file to output circult list to", "RouterCircuits"},
+    { "maxCircuits", "max number of circuits to model with LRU replacement", "4"},
+    { NULL, NULL, NULL}
+};
+
+static const SST::ElementInfoStatistic circ_network_statistics[] = {
+    {"circuitArrival", "Time between 'arrival' of a new circuit", "ns", 1},
+    {"setSize", "Size of the set of unique circuits", "", 1},
+    {"lruSpills", "Number of circuits spilled from the LRU cache of circuits", "", 1},
+    { NULL, NULL, NULL, 0}
 };
 
 #endif
