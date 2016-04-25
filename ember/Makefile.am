@@ -146,6 +146,7 @@ EXTRA_DIST = \
 	test/Tester.py \
 	test/defaultSim.py \
 	test/defaultParams.py \
+	test/opticParams.py \
 	test/chamaOpenIBParams.py \
 	test/chamaPSMParams.py \
 	test/bgqParams.py

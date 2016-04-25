@@ -13,11 +13,19 @@ CircNetworkInspector::CircNetworkInspector(SST::Component* parent,
     
     outFileName = params.find_string("output_file");
     if (outFileName.empty()) {
-      outFileName = "RouterCircuits";
+        outFileName = "";
     }
-    maxCircuits = params.find_integer("maxCircuits", 4);
+    maxCircuits = params.find_integer("maxCircuits", 16);
 
     nanoTimeConv = SST::Simulation::getSimulation()->getTimeLord()->getTimeConverter("1ns");    
+
+    // register a clock
+    ClockHandler = new SST::Clock::Handler<CircNetworkInspector>(this, 
+                                                                 &CircNetworkInspector::tick);
+    assert(ClockHandler);
+    tickC = registerClock("100 ms", ClockHandler);
+    assert(tickC);
+
 }
 
 void CircNetworkInspector::initialize(string id) {
@@ -38,6 +46,7 @@ void CircNetworkInspector::initialize(string id) {
             spillCount = new int(0);
             lruList = new pairList_t;
             circMap = new circMap_t;
+            uniquePaths_epoch = (setMap[key].uniquePaths_epoch = new pairSet_t);
             setMap[key].uniquePaths = ps;
             uniquePaths = ps;
             setMap[key].circArrival = circArrival;
@@ -48,6 +57,7 @@ void CircNetworkInspector::initialize(string id) {
             isFirst = 1;
         } else {
             // someone else created the set already
+            uniquePaths_epoch = iter->second.uniquePaths_epoch;
             uniquePaths = iter->second.uniquePaths;
             circArrival = iter->second.circArrival;
             lruSpills = iter->second.lruSpills;
@@ -56,6 +66,9 @@ void CircNetworkInspector::initialize(string id) {
             lruList = iter->second.lruList;
             circMap = iter->second.circMap;
 
+            // only the 'first' does this
+            unregisterClock(tickC, ClockHandler);
+
             isFirst = 0;
         }
 
@@ -63,10 +76,27 @@ void CircNetworkInspector::initialize(string id) {
     }
 }
 
+bool CircNetworkInspector::tick( SST::Cycle_t ) {
+    if (isFirst) {
+
+        SST::Output* output_file = new SST::Output("",0,0,
+                                                   SST::Output::STDOUT);
+        
+        output_file->output(CALL_INFO, "RC:%" PRIu64 " %s %" PRIu64 "\n", 
+                            getCurrentSimTimeMicro()/1000, 
+                            parent->getName().c_str(), 
+                            (unsigned long long)uniquePaths_epoch->size());
+        
+        uniquePaths_epoch->clear();
+    }
+    return false;
+}
+
 void CircNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
     // this does not have to be locked since all the network
     // inspectors for a given router are serial
     SDPair circ(req->src, req->dest);
+    uniquePaths_epoch->insert(circ);
     auto inp = uniquePaths->insert(circ);
     if (inp.second) { 
         // this a new insert
@@ -125,18 +155,25 @@ void CircNetworkInspector::finish() {
         
         if (!setMap.empty()) {
             // create new file
-            SST::Output* output_file = new SST::Output("",0,0,
-                                                       SST::Output::FILE, 
-                                                       outFileName);
+            SST::Output* output_file;
+            if (outFileName.empty()) {
+                output_file = new SST::Output("",0,0,
+                                              SST::Output::STDOUT);
+            } else {
+                output_file = new SST::Output("",0,0,
+                                              SST::Output::FILE, 
+                                              outFileName);
+            }
             
             for(setMap_t::iterator i = setMap.begin();
                 i != setMap.end(); ++i) {
                 // print
-                output_file->output(CALL_INFO, "%s %" PRIu64 "\n", 
+                output_file->output(CALL_INFO, "RC %s %" PRIu64 "\n", 
                                     i->first.c_str(), 
                                     (unsigned long long)i->second.uniquePaths->size());
                 // clean up
                 delete(i->second.uniquePaths);
+                delete(i->second.uniquePaths_epoch);
                 //delete(i->second.second);
             }
         }
