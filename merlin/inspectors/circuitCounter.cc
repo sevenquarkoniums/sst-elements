@@ -2,10 +2,16 @@
 #include "sst/core/serialization.h"
 #include "sst/core/timeConverter.h"
 
+#include "hr_router/hr_router.h"
+#include "topology/fattree.h"
 #include "circuitCounter.h"
+
+using SST::Merlin::hr_router;
+using SST::Merlin::topo_fattree;
 
 SST::Core::ThreadSafe::Spinlock CircNetworkInspector::mapLock;
 CircNetworkInspector::setMap_t CircNetworkInspector::setMap;
+std::map<int,int> CircNetworkInspector::topo;
 
 CircNetworkInspector::CircNetworkInspector(SST::Component* parent, 
                                            SST::Params &params) :
@@ -33,6 +39,15 @@ void CircNetworkInspector::initialize(string id) {
     {
         mapLock.lock();
         
+        topo_fattree *ft = 0;
+        hr_router *hr = dynamic_cast<hr_router*>(parent);
+        if (hr) {
+            ft = dynamic_cast<topo_fattree*>(hr->topo);
+            if (ft) {
+                topo[ft->rtr_level] = ft->down_ports;
+            }
+        }
+
         // use router name as the key
         const string &key = parent->getName();
         // look up our key
@@ -54,6 +69,9 @@ void CircNetworkInspector::initialize(string id) {
             setMap[key].lruList = lruList;
             setMap[key].lruSpills = lruSpills;
             setMap[key].spillCount = spillCount;
+            if (ft) {
+                setMap[key].rtr_level = ft->rtr_level;
+            }
             isFirst = 1;
         } else {
             // someone else created the set already
@@ -168,9 +186,11 @@ void CircNetworkInspector::finish() {
             for(setMap_t::iterator i = setMap.begin();
                 i != setMap.end(); ++i) {
                 // print
-                output_file->output(CALL_INFO, "RC %s %" PRIu64 "\n", 
+                output_file->output(CALL_INFO, "RC %s %" PRIu64 " %d\n", 
                                     i->first.c_str(), 
-                                    (unsigned long long)i->second.uniquePaths->size());
+                                    (unsigned long long)i->second.uniquePaths->size(), 
+                                    uniquePathsBelow(i->second.uniquePaths, 
+                                                     i->second.rtr_level));
                 // clean up
                 delete(i->second.uniquePaths);
                 delete(i->second.uniquePaths_epoch);
@@ -182,4 +202,25 @@ void CircNetworkInspector::finish() {
         
         mapLock.unlock();
     }
+}
+
+int CircNetworkInspector::uniquePathsBelow(const pairSet_t *ups, int rtrLvl) {
+    int divisor = 1;
+    map<int,int>::iterator ii = topo.end();
+    ii--;
+    int highestLevel = ii->first;
+    for (int c = rtrLvl+1; c <= highestLevel; ++c) {
+        divisor = divisor * topo[c];
+    }
+
+    pairSet_t newSet;
+    for(pairSet_t::iterator i = ups->begin();
+        i != ups->end(); ++i) {
+        SDPair p = *i;
+        p.first /= divisor;
+        p.second /= divisor;
+        newSet.insert(p);
+    }
+
+    return int(newSet.size());
 }

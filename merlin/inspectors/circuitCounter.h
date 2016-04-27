@@ -40,10 +40,13 @@ private:
     pairList_t *lruList;
     map<SDPair, pairList_t::iterator> *circMap;
     bool isFirst; // is the first port in the router
+    int numInRtr;
 
     SST::Clock::HandlerBase *ClockHandler;
     SST::TimeConverter *tickC; 
     bool tick(SST::Cycle_t);
+
+    int uniquePathsBelow(const pairSet_t *ups, int rtrLvl);
 
     // per router data
     struct routerData {
@@ -55,6 +58,7 @@ private:
         int *spillCount;
         pairList_t *lruList;
         map<SDPair, pairList_t::iterator> *circMap;
+        int rtr_level;
     };
     
     typedef map<string, routerData> setMap_t;
@@ -63,6 +67,7 @@ private:
     // threads during intiailize, so it needs to be protected.
     static setMap_t setMap;
     static SST::Core::ThreadSafe::Spinlock mapLock;
+    static map<int,int> topo;
 public:
     CircNetworkInspector(SST::Component* parent, SST::Params &params);
 

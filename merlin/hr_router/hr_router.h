@@ -35,7 +35,7 @@ class PortControl;
 
 class hr_router : public Router {
 
-private:
+public:
     static int num_routers;
     static int print_debug;
     int id;

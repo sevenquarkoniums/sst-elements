@@ -26,7 +26,7 @@ namespace Merlin {
 
 class topo_fattree: public Topology {
 
-private:
+public:
     int rtr_level;
     int level_id;
     int level_group;
