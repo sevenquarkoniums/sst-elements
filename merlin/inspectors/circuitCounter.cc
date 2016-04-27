@@ -71,6 +71,8 @@ void CircNetworkInspector::initialize(string id) {
             setMap[key].spillCount = spillCount;
             if (ft) {
                 setMap[key].rtr_level = ft->rtr_level;
+            } else {
+                setMap[key].rtr_level = 0;
             }
             isFirst = 1;
         } else {
@@ -205,6 +207,10 @@ void CircNetworkInspector::finish() {
 }
 
 int CircNetworkInspector::uniquePathsBelow(const pairSet_t *ups, int rtrLvl) {
+    if (topo.empty()) {
+        return ups->size();
+    }
+
     int divisor = 1;
     map<int,int>::iterator ii = topo.end();
     ii--;
