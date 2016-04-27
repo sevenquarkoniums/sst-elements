@@ -211,6 +211,9 @@ int CircNetworkInspector::uniquePathsBelow(const pairSet_t *ups, int rtrLvl) {
     int highestLevel = ii->first;
     for (int c = rtrLvl+1; c <= highestLevel; ++c) {
         divisor = divisor * topo[c];
+        if (divisor == 0) {
+            return ups->size();
+        }
     }
 
     pairSet_t newSet;
