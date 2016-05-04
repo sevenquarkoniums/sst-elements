@@ -217,6 +217,9 @@ hr_router::hr_router(ComponentId_t cid, Params& params) :
     std::string inspector_config = params.find_string("network_inspectors", "");
     split(inspector_config,",",inspector_names);
 
+    std::string inspector_config_params = params.find_string("network_inspectors_params", "");
+    split(inspector_config_params,",",inspector_params);
+
     params.enableVerify(false);
     for ( int i = 0; i < num_ports; i++ ) {
         in_port_busy[i] = 0;
@@ -241,7 +244,7 @@ hr_router::hr_router(ComponentId_t cid, Params& params) :
                                    1, getLogicalGroupParam(params,topo,i,"output_latency","0ns"),
                                    getLogicalGroupParam(params,topo,i,"input_buf_size"),
                                    getLogicalGroupParam(params,topo,i,"output_buf_size"),
-                                   inspector_names);
+                                   inspector_names, inspector_params);
         
     }
     params.enableVerify(true);

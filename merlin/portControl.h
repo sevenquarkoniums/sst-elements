@@ -145,7 +145,8 @@ public:
                 SimTime_t input_latency_cycles, std::string input_latency_timebase,
                 SimTime_t output_latency_cycles, std::string output_latency_timebase,
                 const UnitAlgebra& in_buf_size, const UnitAlgebra& out_buf_size,
-                std::vector<std::string>& inspector_names);
+                std::vector<std::string>& inspector_names,
+                std::vector<std::string>& inspector_params);
 
     void initVCs(int vcs, internal_router_event** vc_heads, int* xbar_in_credits);
 

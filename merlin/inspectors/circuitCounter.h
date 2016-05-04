@@ -27,10 +27,12 @@ private:
     typedef set<SDPair> pairSet_t;
     typedef list<SDPair> pairList_t;
     typedef map<SDPair, pairList_t::iterator> circMap_t;
+    typedef map<SDPair, int64_t> circTime_t;
     pairSet_t *uniquePaths_epoch;
     pairSet_t *uniquePaths;
     string outFileName;
     int maxCircuits;
+    int circuitSetup;
     SST::TimeConverter* nanoTimeConv;
     uint64_t lastNew;
     Statistic<uint64_t>*  circArrival;
@@ -39,6 +41,7 @@ private:
     int* spillCount;
     pairList_t *lruList;
     map<SDPair, pairList_t::iterator> *circMap;
+    circTime_t circTime;
     bool isFirst; // is the first port in the router
     int numInRtr;
 
@@ -74,12 +77,13 @@ public:
     void initialize(string id);
     void finish();
 
-    void inspectNetworkData(SimpleNetwork::Request* req);
+    int inspectNetworkData(SimpleNetwork::Request* req);
 };
 
 static const SST::ElementInfoParam circ_network_params[] = {
     { "output_file", "file to output circult list to", "stdout"},
     { "maxCircuits", "max number of circuits to model with LRU replacement", "4"},
+    { "circuitSetup", "delay for setting up a circuit", "0"},
     { NULL, NULL, NULL}
 };
 
