@@ -28,7 +28,7 @@ public:
 
     void initialize(string id);
 
-    void inspectNetworkData(SimpleNetwork::Request* req);
+    int inspectNetworkData(SimpleNetwork::Request* req);
 };
 
 #endif

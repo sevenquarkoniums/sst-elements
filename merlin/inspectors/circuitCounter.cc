@@ -13,6 +13,8 @@ SST::Core::ThreadSafe::Spinlock CircNetworkInspector::mapLock;
 CircNetworkInspector::setMap_t CircNetworkInspector::setMap;
 std::map<int,int> CircNetworkInspector::topo;
 
+//sst --model-options="--topo=torus --shape=6x6x12  --platform=optic --rtrArb=xbar_arb_lru_infx --netInspect="merlin.circuit_network_inspector" --netInspectParams="maxCircuits=32,circuitSetup=100" --cmdLine=\"Init\" --cmdLine=\"FFT3D npRow=16\" --cmdLine=\"Fini\"" emberLoad_circ.py
+
 CircNetworkInspector::CircNetworkInspector(SST::Component* parent, 
                                            SST::Params &params) :
     SimpleNetwork::NetworkInspector(parent), lastNew(0) {
@@ -22,6 +24,8 @@ CircNetworkInspector::CircNetworkInspector(SST::Component* parent,
         outFileName = "";
     }
     maxCircuits = params.find_integer("maxCircuits", 16);
+
+    circuitSetup = params.find_integer("circuitSetup", 0);
 
     nanoTimeConv = SST::Simulation::getSimulation()->getTimeLord()->getTimeConverter("1ns");    
 
@@ -112,15 +116,16 @@ bool CircNetworkInspector::tick( SST::Cycle_t ) {
     return false;
 }
 
-void CircNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
+int CircNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
     // this does not have to be locked since all the network
     // inspectors for a given router are serial
     SDPair circ(req->src, req->dest);
+    uint64_t now = (uint64_t) nanoTimeConv->convertFromCoreTime(SST::Simulation::getSimulation()->getCurrentSimCycle());
+
     uniquePaths_epoch->insert(circ);
     auto inp = uniquePaths->insert(circ);
     if (inp.second) { 
         // this a new insert
-        uint64_t now = (uint64_t) nanoTimeConv->convertFromCoreTime(SST::Simulation::getSimulation()->getCurrentSimCycle());
         uint64_t diff = now - lastNew;
         circArrival->addData(diff);
         lastNew = now;
@@ -129,8 +134,10 @@ void CircNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
 
     // track the LRU list
     assert(lruList->size() == circMap->size());
+    bool newCircuit = false;
     auto mapEntry = circMap->find(circ);
     if (mapEntry == circMap->end()) {
+        newCircuit = true;
         // not alread in the list
         if (circMap->size() < maxCircuits) {
             // just insert          
@@ -164,6 +171,21 @@ void CircNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
         // only the 'first' port adds to this data
         setSize->addData(uniquePaths->size());
     }
+
+    int delay = 0;
+    if (newCircuit) {
+        circTime[circ] = now + circuitSetup;
+        delay = circuitSetup;
+    } else {
+        auto ci = circTime.find(circ);
+        if (ci == circTime.end()) {
+            assert(0);
+        } else {            
+            delay = max(int64_t(0), ci->second - int64_t(now));
+        }
+    }
+
+    return delay;
 }
 
 // Print out all the stats. We have the first component print all the

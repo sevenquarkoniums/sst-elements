@@ -23,6 +23,37 @@ using namespace SST;
 using namespace Merlin;
 using namespace Interfaces;
 
+// Helper functions used only in this file
+static std::string trim(std::string str)
+{
+    // Find whitespace in front
+    int front_index = 0;
+    while ( isspace(str[front_index]) ) front_index++;
+    
+    // Find whitespace in back
+    int back_index = str.length() - 1;
+    while ( isspace(str[back_index]) ) back_index--;
+    
+    return str.substr(front_index,back_index-front_index+1);
+}
+
+static void split(std::string input, std::string delims, std::vector<std::string>& tokens) {
+    if ( input.length() == 0 ) return;
+    size_t start = 0;
+    size_t stop = 0;;
+    std::vector<std::string> ret;
+    
+    do {
+        stop = input.find_first_of(delims,start);
+        tokens.push_back(input.substr(start,stop-start));
+        start = stop + 1;
+    } while (stop != std::string::npos);
+
+    for ( unsigned int i = 0; i < tokens.size(); i++ ) {
+        tokens[i] = trim(tokens[i]);
+    }
+}
+
 void
 PortControl::sendTopologyEvent(TopologyEvent* ev)
 {
@@ -135,7 +166,8 @@ PortControl::PortControl(Router* rif, int rtr_id, std::string link_port_name,
                          SimTime_t input_latency_cycles, std::string input_latency_timebase,
                          SimTime_t output_latency_cycles, std::string output_latency_timebase,
                          const UnitAlgebra& in_buf_size, const UnitAlgebra& out_buf_size,
-                         std::vector<std::string>& inspector_names) :
+                         std::vector<std::string>& inspector_names,
+                         std::vector<std::string>& inspector_params) :
     rtr_id(rtr_id),
     num_vcs(-1),
     link_bw(link_bw),
@@ -213,10 +245,19 @@ PortControl::PortControl(Router* rif, int rtr_id, std::string link_port_name,
     output_port_stalls = rif->registerStatistic<uint64_t>("output_port_stalls", port_name);
     idle_time = rif->registerStatistic<uint64_t>("idle_time", port_name);
 
+    // constrct net inspector params
+    Params niParams;
+    for(auto i: inspector_params) {
+        std::vector<std::string> ss;
+        split(i, "=", ss);
+        assert(ss.size() == 2);
+        //printf("%s %s\n", ss[0].c_str(), ss[1].c_str());
+        niParams.insert(ss[0], ss[1]);
+    }
+
     // Create any NetworkInspectors
     for ( unsigned int i = 0; i < inspector_names.size(); i++ ) {
-        Params empty;
-        SimpleNetwork::NetworkInspector* ni = dynamic_cast<SimpleNetwork::NetworkInspector*>(rif->loadSubComponent(inspector_names[i], rif, empty));
+        SimpleNetwork::NetworkInspector* ni = dynamic_cast<SimpleNetwork::NetworkInspector*>(rif->loadSubComponent(inspector_names[i], rif, niParams));
         if ( ni == NULL ) {
             merlin_abort.fatal(CALL_INFO,1,"NetworkInspector: %s, not found.\n",inspector_names[i].c_str());
         }
@@ -836,7 +877,7 @@ PortControl::handle_output_r2r(Event* ev) {
             break;
 	    }
 	}
-    // trace.getOutput().output(CALL_INFO, "Got to here 4\n");
+        // trace.getOutput().output(CALL_INFO, "Got to here 4\n");
 	
 	// If we found an event to send, go ahead and send it
 	if ( found ) {
@@ -844,8 +885,8 @@ PortControl::handle_output_r2r(Event* ev) {
 	    // Send the output to the network.
 	    // First set the virtual channel.
 
-        // If this is a host port, then we return it to the VN instead of the VC
-        send_event->setVC(vc_to_send);
+            // If this is a host port, then we return it to the VN instead of the VC
+            send_event->setVC(vc_to_send);
         
 	    // Need to return credits to the output buffer
 	    int size = send_event->getFlitCount();
@@ -880,27 +921,27 @@ PortControl::handle_output_r2r(Event* ev) {
             //           << " to dest " << send_event->getDest()
             //           << "." << std::endl;
 	    }
-        send_bit_count->addData(send_event->getEncapsulatedEvent()->request->size_in_bits);
-        send_packet_count->addData(1);
+            send_bit_count->addData(send_event->getEncapsulatedEvent()->request->size_in_bits);
+            send_packet_count->addData(1);
 
-        // Send the request to all the registered NetworkInspectors
-        for ( unsigned int i = 0; i < network_inspectors.size(); i++ ) {
-            network_inspectors[i]->inspectNetworkData(send_event->getEncapsulatedEvent()->request);
-        }
+            // Send the request to all the registered NetworkInspectors
+            int delay = 0;
+            for ( unsigned int i = 0; i < network_inspectors.size(); i++ ) {
+                delay += network_inspectors[i]->inspectNetworkData(send_event->getEncapsulatedEvent()->request);
+            }
 
-	    if ( host_port ) {
-            // std::cout << "Found an event to send on host port " << port_number << std::endl;
-            // trace.getOutput().output(CALL_INFO, "before\n");
-            port_link->send(1,send_event->getEncapsulatedEvent()); 
-            // trace.getOutput().output(CALL_INFO, "after\n");
-            send_event->setEncapsulatedEvent(NULL);
-            delete send_event;
-	    }
-	    else {
-            // trace.getOutput().output(CALL_INFO, "before\n");
-            port_link->send(1,send_event); 
-            // trace.getOutput().output(CALL_INFO, "after\n");
-	    }
+            if ( host_port ) {
+                // std::cout << "Found an event to send on host port " << port_number << std::endl;
+                // trace.getOutput().output(CALL_INFO, "before\n");
+                port_link->send(1+delay,send_event->getEncapsulatedEvent()); 
+                // trace.getOutput().output(CALL_INFO, "after\n");
+                send_event->setEncapsulatedEvent(NULL);
+                delete send_event;
+            } else {
+                // trace.getOutput().output(CALL_INFO, "before\n");
+                port_link->send(1+delay,send_event); 
+                // trace.getOutput().output(CALL_INFO, "after\n");
+            }
 	}
 	else {
 	    // What do we do if there's nothing to send??  It could be

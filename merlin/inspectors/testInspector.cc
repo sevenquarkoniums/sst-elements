@@ -26,7 +26,8 @@ void TestNetworkInspector::initialize(string id) {
     test_count = registerStatistic<uint64_t>("test_count", id);
 }
 
-void TestNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
+int TestNetworkInspector::inspectNetworkData(SimpleNetwork::Request* req) {
     test_count->addData(1);
+    return 0;
 }
 

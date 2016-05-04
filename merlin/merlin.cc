@@ -80,6 +80,7 @@ static const ElementInfoParam hr_router_params[] = {
     {"input_buf_size", "Size of input buffers specified in b or B (can include SI prefix)."},
     {"output_buf_size", "Size of output buffers specified in b or B (can include SI prefix)."},
     {"network_inspectors", "Comma separated list of network inspectors to put on output ports.", ""},
+    {"network_inspectors_params", "Comma separated list of network inspectors parameters passed to each network inspector.", ""},
     {"debug", "Turn on debugging for router. Set to 1 for on, 0 for off.", "0"},
     {NULL,NULL,NULL}
 };

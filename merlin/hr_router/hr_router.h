@@ -70,6 +70,7 @@ public:
     Clock::Handler<hr_router>* my_clock_handler;
 
     std::vector<std::string> inspector_names;
+    std::vector<std::string> inspector_params;
     
     bool clock_handler(Cycle_t cycle);
     // bool debug_clock_handler(Cycle_t cycle);
