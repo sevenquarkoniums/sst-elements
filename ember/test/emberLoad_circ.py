@@ -142,6 +142,18 @@ elif platform == "optic":
     hermesParams = opticParams.hermesParams
     emberParams = opticParams.emberParams 
 
+elif platform == "opticBW":
+    nicParams = opticParams.nicParams
+    networkParams = opticParams.networkBWParams
+    hermesParams = opticParams.hermesParams
+    emberParams = opticParams.emberParams 
+
+elif platform == "opticLat":
+    nicParams = opticParams.nicParams
+    networkParams = opticParams.networkLatParams
+    hermesParams = opticParams.hermesParams
+    emberParams = opticParams.emberParams 
+
 elif platform == "chamaPSM":
     nicParams = chamaPSMParams.nicParams
     networkParams = chamaPSMParams.networkParams
@@ -363,11 +375,7 @@ topo.build()
 
 sst.enableStatisticForComponentType("merlin.hr_router", 
                                     "circuitArrival",
-                                       {"type":"sst.HistogramStatistic",
-                                        "minvalue" : "0",
-                                        "binwidth" : "10", 
-                                        "numbins"  : "10", 
-                                        "IncludeOutOfBounds" : "1"})
+                                       {"type":"sst.AccumulatorStatistic"})
 #"rate" : "1000 ns",
 #                                        "startat" : "100 ns",
 #                                        "stopat" : "9000 ns"})
