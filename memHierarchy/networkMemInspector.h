@@ -29,7 +29,7 @@ namespace SST { namespace MemHierarchy {
             
             virtual ~networkMemInspector() {}
             
-            virtual void inspectNetworkData(SimpleNetwork::Request* req);
+            virtual int inspectNetworkData(SimpleNetwork::Request* req);
             
             virtual void initialize(std::string id);
             

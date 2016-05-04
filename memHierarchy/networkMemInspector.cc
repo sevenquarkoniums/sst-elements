@@ -26,13 +26,15 @@ void networkMemInspector::initialize(std::string id) {
     }
 }
 
-void networkMemInspector::inspectNetworkData(SimpleNetwork::Request* req) {
+int networkMemInspector::inspectNetworkData(SimpleNetwork::Request* req) {
     MemNIC::MemRtrEvent *mre = dynamic_cast<MemNIC::MemRtrEvent*>(req->inspectPayload());
     if (mre) {
         memCmdStat[mre->event->getCmd()]->addData(1);
     } else {
         dbg.output(CALL_INFO,"Unexpected payload encountered. Ignoring.\n");
     }
+
+    return 0;
 }
 
 }} // close sst::memhierarchy namespace
