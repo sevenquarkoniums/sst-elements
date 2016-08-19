@@ -48,9 +48,11 @@ class FireflyNetworkEvent : public Event {
 
     void bufPop( size_t len ) {
 
+        static int pass=0;
+        pass++;
         offset += len;
         if ( offset > bufLen ) {
-        std::cerr << len << " " << offset << " " << bufLen << std::endl;
+        std::cerr << len << " " << offset << " " << bufLen << " PASS " << pass << std::endl;
         assert( offset <= bufLen );
         }
     }
