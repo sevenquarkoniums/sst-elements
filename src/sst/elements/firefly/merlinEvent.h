@@ -58,7 +58,7 @@ class FireflyNetworkEvent : public Event {
         offset += len;
         if ( offset > bufLen ) {
         std::cerr << len << " " << offset << " " << bufLen << " PASS " << pass << std::endl;
-        std::cerr <<  "Examine len=36 case: ct =  " << ct36 <<, "previous " << last36 << std::endl;     
+        std::cerr <<  "Examine len=36 case: ct =  " << ct36 << ", previous " << last36 << std::endl;     
    assert( offset <= bufLen );
         }
     }
