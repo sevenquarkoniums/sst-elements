@@ -50,11 +50,11 @@ class FireflyNetworkEvent : public Event {
 
         static int pass=0;
         static int ct36=0, last36=0;
-        pass++;
         if ( len == 36 ) {
             ct36++;
             last36=pass;
         }
+        pass++;
         offset += len;
         if ( offset > bufLen ) {
         std::cerr << len << " " << offset << " " << bufLen << " PASS " << pass << std::endl;
