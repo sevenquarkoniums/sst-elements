@@ -3,7 +3,7 @@
 #
 
 AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(MPI_CPPFLAGS) \
-	-I$(top_srcdir)/src
+	-I$(top_srcdir)/src -g
 
 compdir = $(pkglibdir)
 comp_LTLIBRARIES = libfirefly.la
