@@ -334,6 +334,7 @@ size_t Nic::RecvMachine::copyIn( Output& dbg, Nic::Entry& entry,
                         FireflyNetworkEvent& event, std::vector<DmaVec>& vec )
 {
 static size_t Maxlen=0;
+static int Jcnt=0;
     dbg.verbose(CALL_INFO,3,NIC_DBG_RECV_MACHINE,"Recv: "
 				"ioVec.size()=%lu\n", entry.ioVec().size() );
 
@@ -345,6 +346,7 @@ static size_t Maxlen=0;
             size_t toLen = entry.ioVec()[entry.currentVec].len - entry.currentPos;
             size_t fromLen = event.bufSize();
             size_t len = toLen < fromLen ? toLen : fromLen;
+Jcnt++;
 if ( len > Maxlen ) {
    std::cerr << " John " << Jcnt << ", len = " << len << std::endl;
    Maxlen = len;
