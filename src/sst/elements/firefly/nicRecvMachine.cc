@@ -113,7 +113,7 @@ if ( lenxx > Maxlen1 ) {
         }
 
 Jcnt2++;
-lenxx = sizeof(MsgHdr) sizeof(rdmaHdr);
+lenxx = sizeof(MsgHdr) + sizeof(rdmaHdr);
 if ( lenxx > Maxlen2 ) {
    std::cerr << " John2 " << Jcnt2 << ", len = " << lenxx << std::endl;
    Maxlen2 = lenxx;
