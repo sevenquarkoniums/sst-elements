@@ -77,6 +77,7 @@ class FireflyNetworkEvent : public Event {
         buf = me->buf;
         seq = me->seq;
         src = me->src;
+        offset = me->offset;
     }
 
     FireflyNetworkEvent(const FireflyNetworkEvent &me) :
@@ -85,6 +86,7 @@ class FireflyNetworkEvent : public Event {
         buf = me.buf;
         seq = me.seq;
         src = me.src;
+        offset = me.offset;
     }
 
     virtual Event* clone(void)
@@ -125,6 +127,7 @@ class FireflyNetworkEvent : public Event {
     void serialize_order(SST::Core::Serialization::serializer &ser) {
         Event::serialize_order(ser);
         ser & seq;
+        ser & offset;
         ser & bufLen;
         ser & buf;
         ser & src;
