@@ -55,6 +55,11 @@ void Nic::RecvMachine::state_1(  FireflyNetworkEvent* ev )
 #ifdef NIC_RECV_DEBUG
     ++m_msgCount;
 #endif
+static size_t Maxlen1=0;
+static int Jcnt1=0;
+static size_t Maxlen2=0;
+static int Jcnt2=0;
+size_t lenxx;
     MsgHdr& hdr = *(MsgHdr*) ev->bufPtr();
 
     if ( MsgHdr::Msg == hdr.op ) {
@@ -62,6 +67,12 @@ void Nic::RecvMachine::state_1(  FireflyNetworkEvent* ev )
 
         Callback callback;
         if ( findRecv( ev->src, hdr ) ) {
+Jcnt1++;
+lenxx = sizeof(MsgHdr);
+if ( lenxx > Maxlen1 ) {
+   std::cerr << " John1 " << Jcnt1 << ", len = " << lenxx << std::endl;
+   Maxlen1 = lenxx;
+}
             ev->bufPop( sizeof(MsgHdr) );
 
             callback = std::bind( &Nic::RecvMachine::state_move_0, this, ev );
@@ -101,6 +112,12 @@ void Nic::RecvMachine::state_1(  FireflyNetworkEvent* ev )
             assert(0);
         }
 
+Jcnt2++;
+lenxx = sizeof(MsgHdr) sizeof(rdmaHdr);
+if ( lenxx > Maxlen2 ) {
+   std::cerr << " John2 " << Jcnt2 << ", len = " << lenxx << std::endl;
+   Maxlen2 = lenxx;
+}
         ev->bufPop(sizeof(MsgHdr) + sizeof(rdmaHdr) );
 
         m_nic.schedCallback( callback, delay );
