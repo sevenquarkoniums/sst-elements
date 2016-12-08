@@ -26,7 +26,6 @@
 #include <sst/core/interfaces/stringEvent.h>
 
 #include <csignal>
-#include <boost/variant.hpp>
 
 #include "cacheController.h"
 #include "memEvent.h"
@@ -256,9 +255,18 @@ void Cache::processCacheFlush(MemEvent* event, Addr baseAddr, bool replay) {
         return;
     }
 
+    
+
     MemEvent * origRequest = NULL;
     if (mshr_->exists(baseAddr)) origRequest = mshr_->lookupFront(baseAddr);
     
+    // Generally we should not nack this request without checking for races
+    // But if no possible races and handling this will fill MSHR, nack it
+    if (!origRequest && mshr_->isAlmostFull()) { 
+        sendNACK(event);
+        return;
+    }
+
     CacheAction action = coherenceMgr->handleReplacement(event, line, origRequest, replay);
     
     /* Action returned is for the origRequest if it exists, otherwise for the flush */

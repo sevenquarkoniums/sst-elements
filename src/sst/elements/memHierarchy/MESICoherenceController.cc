@@ -693,7 +693,7 @@ CacheAction MESIController::handleFlushLineInvRequest(MemEvent * event, CacheLin
                         cacheLine->setState(IM);
                         return DONE;
                     }
-                } else if (reqEvent->getCmd() == GetXResp) {
+                } else if (reqEvent->getCmd() == GetX) {
                     cacheLine->setState(SM);
                     return STALL; // Waiting for GetXResp
                 }
@@ -1101,7 +1101,7 @@ CacheAction MESIController::handleInv(MemEvent* event, CacheLine* cacheLine, boo
         case IS:
         case IM:
         case I_B:
-            return DONE;    // Eviction raced with Inv, IS/IM only happen if we don't use AckPuts
+            return IGNORE;    // Eviction raced with Inv, IS/IM only happen if we don't use AckPuts
         case S_B:
         case S:
             if (cacheLine->numSharers() > 0) {

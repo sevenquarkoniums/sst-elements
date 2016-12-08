@@ -14,17 +14,20 @@
  * E-mail: aawad@sandia.gov
  */
 
+#ifndef _H_SST_TLB
+#define _H_SST_TLB
 
 #include <sst_config.h>
 #include <sst/core/component.h>
 #include <sst/core/timeConverter.h>
 #include <sst/elements/memHierarchy/memEvent.h>
-
+#include "PageTableWalker.h"
 #include<map>
 #include<vector>
 
 // This file defines a TLB structure
 
+using namespace SST::SambaComponent;
 
 class TLB 
 {
@@ -41,6 +44,8 @@ class TLB
 	int *** lru; // This will hold the lru positions
 
 	TLB * next_level; // a pointer to the next level Samba structure
+
+	PageTableWalker * PTW; // This is a pointer to the PTW in case of being last level
 
 	std::map<long long int, int> SIZE_LOOKUP; // This structure checks if a size is supported inside the structure, and its index structure
 
@@ -88,7 +93,7 @@ class TLB
 	TLB() {} // For serialization
 	TLB(int page_size, int assoc, TLB * next_level, int size);
 	TLB(int tlb_id, TLB * Next_level,int level, SST::Component * owner, SST::Params& params);
-
+	TLB(int tlb_id, PageTableWalker * Next_level, int level, SST::Component * owner, SST::Params& params);
 	// Does the translation and updating the statistics of miss/hit
 	long long int translate(long long int vadd);
 
@@ -128,3 +133,5 @@ class TLB
 
 
 };
+
+#endif
