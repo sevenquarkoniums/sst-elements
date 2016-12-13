@@ -43,28 +43,13 @@ namespace SST { namespace MemHierarchy {
 
 class Cache;
 
-/*  Coherence-related defines 
- *  These are defines rather than parameters because they are intended to be rarely changed
- *  and should be changed with caution. Deadlocks, races, incoherence, and in general, chaos, can result!
- */
-
-/* Writeback acks are used to avoid races between Inv and Put events and are required if any of the following are true:
- * 1) A Put may be stalled (and hence NACKed), e.g., with a directory cache
- * 2) Non-inclusive caches exist in the system. Here, it isn't clear whether a cache miss is due to exclusion or a pending replacement
- * Acks can be disabled for inclusive hierarchies where the directory cannot miss on a Put
- */
-#define DISABLE_WRITEBACK_ACK 0
-
-class CoherencyController{
+class CoherencyController {
 public:
     typedef CacheArray::CacheLine CacheLine;
-    typedef unsigned int uint;
-    typedef uint64_t uint64;
 
     struct Response {
         MemEvent* event;
         uint64_t deliveryTime;
-        bool cpuResponse;
     };
     
     PortManager* portMgr_;
@@ -99,8 +84,8 @@ public:
     void sendNACK(MemEvent * event, bool up, SimTime_t timeInNano) {
         MemEvent *NACKevent = event->makeNACKResponse(event, timeInNano);
     
-        uint64 deliveryTime      = timestamp_ + tagLatency_;
-        Response resp = {NACKevent, deliveryTime, true};
+        uint64_t deliveryTime      = timestamp_ + tagLatency_;
+        Response resp = {NACKevent, deliveryTime};
         if (up) {
             addToOutgoingQueueUp(resp);
         } else {
@@ -121,7 +106,7 @@ public:
     
         if (baseTime < timestamp_) baseTime = timestamp_;
         uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : accessLatency_);
-        Response resp = {responseEvent, deliveryTime, true};
+        Response resp = {responseEvent, deliveryTime};
         addToOutgoingQueueUp(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -136,11 +121,11 @@ public:
         // Add some backoff latency to avoid unneccessary traffic
         int retries = event->getRetries();
         if (retries > 10) retries = 10;
-        uint64 backoff = ( 0x1 << retries);
+        uint64_t backoff = ( 0x1 << retries);
         event->incrementRetries();
 
-        uint64 deliveryTime =  timestamp_ + mshrLatency_ + backoff;
-        Response resp = {event, deliveryTime, false};
+        uint64_t deliveryTime =  timestamp_ + mshrLatency_ + backoff;
+        Response resp = {event, deliveryTime};
         if (!up) addToOutgoingQueue(resp);
         else addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -169,7 +154,7 @@ public:
             deliveryTime = timestamp_ + mshrLatency_;
         } else deliveryTime = baseTime + tagLatency_; 
     
-        Response fwdReq = {forwardEvent, deliveryTime, false};
+        Response fwdReq = {forwardEvent, deliveryTime};
         addToOutgoingQueue(fwdReq);
 #ifdef __SST_DEBUG_OUTPUT__
         if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_,"Forwarding request at cycle = %" PRIu64 "\n", deliveryTime);        
@@ -288,7 +273,7 @@ public:
 
 
 protected:
-    CoherencyController(const Cache* cache, Output* dbg, string name, uint lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, 
+    CoherencyController(const Cache* cache, Output* dbg, string name, unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, 
             PortManager* portMgr, CacheListener* listener, MSHR * mshr, bool debugAll, Addr debugAddr):
                         timestamp_(0), accessLatency_(1), tagLatency_(1), owner_(cache), d_(dbg), lineSize_(lineSize), sentEvents_(0) {
         name_                   = name;
@@ -462,7 +447,7 @@ protected:
         stat_eventSent_Inv = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_Inv");
         stat_eventSent_Fetch = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_Fetch");
         stat_eventSent_FetchInv = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_FetchInv");
-        stat_eventSent_FetchInvX = ((Component *)owner_)->registerStatistic<uint64>("eventSent_FetchInvX");
+        stat_eventSent_FetchInvX = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_FetchInvX");
         stat_eventSent_FetchResp = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_FetchResp");
         stat_eventSent_FetchXResp = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_FetchXResp");
         stat_eventSent_AckInv = ((Component *)owner_)->registerStatistic<uint64_t>("eventSent_AckInv");
@@ -480,7 +465,7 @@ protected:
     CacheListener*  listener_;
 
     Output*         d_;
-    uint            lineSize_;
+    unsigned int    lineSize_;
     bool            writebackCleanBlocks_;  // Writeback clean data as opposed to just a coherence msg
     bool            silentEvictClean_;      // Silently evict clean blocks (currently ok when just mem below us)
     bool            expectWritebackAck_;    // Whether we should expect a writeback ack

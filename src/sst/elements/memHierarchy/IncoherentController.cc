@@ -379,8 +379,8 @@ void IncoherentController::sendWriteback(Command cmd, CacheLine* cacheLine, stri
     newCommandEvent->setRqstr(origRqstr);
     if (cacheLine->getState() == M) newCommandEvent->setDirty(true);
     
-    uint64 deliveryTime = timestamp_ + accessLatency_;
-    Response resp = {newCommandEvent, deliveryTime, false};
+    uint64_t deliveryTime = timestamp_ + accessLatency_;
+    Response resp = {newCommandEvent, deliveryTime};
     addToOutgoingQueue(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -407,7 +407,7 @@ void IncoherentController::forwardFlushLine(Addr baseAddr, string origRqstr, Cac
     uint64_t baseTime = timestamp_;
     if (cacheLine && cacheLine->getTimestamp() > baseTime) baseTime = cacheLine->getTimestamp();
     uint64_t deliveryTime = baseTime + latency;
-    Response resp = {flush, deliveryTime, false};
+    Response resp = {flush, deliveryTime};
     addToOutgoingQueue(resp);
     if (cacheLine) cacheLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -427,7 +427,7 @@ void IncoherentController::sendFlushResponse(MemEvent * requestEvent, bool succe
     flushResponse->setDst(requestEvent->getSrc());
 
     uint64_t deliveryTime = timestamp_ + mshrLatency_;
-    Response resp = {flushResponse, deliveryTime, false};
+    Response resp = {flushResponse, deliveryTime};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 

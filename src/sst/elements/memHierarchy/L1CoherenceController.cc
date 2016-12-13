@@ -138,7 +138,7 @@ CacheAction L1CoherenceController::handleInvalidationRequest(MemEvent * event, C
         MemEvent* snoop = new MemEvent((Component*)owner_, event->getAddr(), event->getBaseAddr(), Inv);
         uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
         uint64_t deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
-        Response resp = {snoop, deliveryTime, true};
+        Response resp = {snoop, deliveryTime};
         addToOutgoingQueueUp(resp);
     }
 
@@ -629,7 +629,7 @@ void L1CoherenceController::sendResponseDown(MemEvent* event, CacheLine* cacheLi
 
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
     uint64_t deliveryTime = replay ? baseTime + mshrLatency_ :baseTime + accessLatency_;
-    Response resp  = {responseEvent, deliveryTime, true};
+    Response resp  = {responseEvent, deliveryTime};
     addToOutgoingQueue(resp);
     cacheLine->setTimestamp(deliveryTime-1);
 
@@ -670,7 +670,7 @@ uint64_t L1CoherenceController::sendResponseUp(MemEvent * event, State grantedSt
     // Compute latency, accounting for serialization of requests to the address
     if (baseTime < timestamp_) baseTime = timestamp_;
     uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : accessLatency_);
-    Response resp = {responseEvent, deliveryTime, true};
+    Response resp = {responseEvent, deliveryTime};
     addToOutgoingQueueUp(resp);
     
     // Debugging
@@ -708,8 +708,8 @@ void L1CoherenceController::sendWriteback(Command cmd, CacheLine* cacheLine, boo
     if (cacheLine->getState() == M) writeback->setDirty(true);
     
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
-    uint64 deliveryTime = baseTime + latency;
-    Response resp = {writeback, deliveryTime, false};
+    uint64_t deliveryTime = baseTime + latency;
+    Response resp = {writeback, deliveryTime};
     addToOutgoingQueue(resp);
     cacheLine->setTimestamp(deliveryTime-1);
     
@@ -731,8 +731,8 @@ void L1CoherenceController::sendAckInv(Addr baseAddr, string origRqstr, CacheLin
     ack->setSize(lineSize_);
     
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
-    uint64 deliveryTime = baseTime + tagLatency_;
-    Response resp = {ack, deliveryTime, false};
+    uint64_t deliveryTime = baseTime + tagLatency_;
+    Response resp = {ack, deliveryTime};
     addToOutgoingQueue(resp);
     cacheLine->setTimestamp(deliveryTime-1);
     
@@ -759,7 +759,7 @@ void L1CoherenceController::forwardFlushLine(Addr baseAddr, Command cmd, string 
     uint64_t baseTime = timestamp_;
     if (cacheLine != NULL && cacheLine->getTimestamp() > baseTime) baseTime = cacheLine->getTimestamp();
     uint64_t deliveryTime = baseTime + latency;
-    Response resp = {flush, deliveryTime, false};
+    Response resp = {flush, deliveryTime};
     addToOutgoingQueue(resp);
     if (cacheLine != NULL) cacheLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -777,7 +777,7 @@ void L1CoherenceController::sendFlushResponse(MemEvent * requestEvent, bool succ
     flushResponse->setRqstr(requestEvent->getRqstr());
     
     uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : tagLatency_);
-    Response resp = {flushResponse, deliveryTime, true};
+    Response resp = {flushResponse, deliveryTime};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 

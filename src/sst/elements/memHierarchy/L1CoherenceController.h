@@ -26,7 +26,7 @@ class L1CoherenceController : public CoherencyController {
 public:
     /** Constructor for L1CoherenceController */
     L1CoherenceController(const Cache* cache, string ownerName, Output* dbg, CacheListener* listener, 
-            unsigned int lineSize, uint64 accessLatency, uint64 tagLatency, uint64 mshrLatency, MSHR * mshr, CoherenceProtocol protocol,
+            unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, MSHR * mshr, CoherenceProtocol protocol,
             PortManager * portMgr, bool debugAll, Addr debugAddr, bool snoopL1Invs) :
                  CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr, listener, mshr, 
                          debugAll, debugAddr) {

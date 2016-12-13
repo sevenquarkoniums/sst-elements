@@ -1717,7 +1717,7 @@ void MESIController::invalidateAllSharers(CacheLine * cacheLine, string rqstr, b
     
         uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
         deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
-        Response resp = {inv, deliveryTime, false};
+        Response resp = {inv, deliveryTime};
         addToOutgoingQueueUp(resp);
 
         mshr_->incrementAcksNeeded(cacheLine->getBaseAddr());
@@ -1749,7 +1749,7 @@ bool MESIController::invalidateSharersExceptRequestor(CacheLine * cacheLine, str
 
         uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
         deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
-        Response resp = {inv, deliveryTime, false};
+        Response resp = {inv, deliveryTime};
         addToOutgoingQueueUp(resp);
         sentInv = true;
         
@@ -1776,7 +1776,7 @@ void MESIController::sendFetchInv(CacheLine * cacheLine, string rqstr, bool repl
     
     uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
     uint64_t deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
-    Response resp = {fetch, deliveryTime, false};
+    Response resp = {fetch, deliveryTime};
     addToOutgoingQueueUp(resp);
     cacheLine->setTimestamp(deliveryTime);
    
@@ -1798,7 +1798,7 @@ void MESIController::sendFetchInvX(CacheLine * cacheLine, string rqstr, bool rep
 
     uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
     uint64_t deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
-    Response resp = {fetch, deliveryTime, false};
+    Response resp = {fetch, deliveryTime};
     addToOutgoingQueueUp(resp);
     cacheLine->setTimestamp(deliveryTime);
     
@@ -1819,7 +1819,7 @@ void MESIController::forwardMessageUp(MemEvent* event) {
     forwardEvent->setDst(upperLevelCacheNames_[0]);
     
     uint64_t deliveryTime = timestamp_ + tagLatency_;
-    Response fwdReq = {forwardEvent, deliveryTime, false};
+    Response fwdReq = {forwardEvent, deliveryTime};
     addToOutgoingQueueUp(fwdReq);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_, "Forwarding %s to %s at cycle = %" PRIu64 "\n", CommandString[forwardEvent->getCmd()], forwardEvent->getDst().c_str(), deliveryTime);
@@ -1841,8 +1841,8 @@ void MESIController::sendResponseDown(MemEvent* event, CacheLine* cacheLine, boo
     responseEvent->setDirty(dirty);
 
     uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
-    uint64 deliveryTime = replay ? baseTime + mshrLatency_ : baseTime + accessLatency_;
-    Response resp  = {responseEvent, deliveryTime, false};
+    uint64_t deliveryTime = replay ? baseTime + mshrLatency_ : baseTime + accessLatency_;
+    Response resp  = {responseEvent, deliveryTime};
     addToOutgoingQueue(resp);
     cacheLine->setTimestamp(deliveryTime);
     
@@ -1863,7 +1863,7 @@ void MESIController::sendResponseDownFromMSHR(MemEvent * respEvent, MemEvent * r
     newResponseEvent->setDirty(dirty);
 
     uint64_t deliveryTime = timestamp_ + mshrLatency_;
-    Response resp = {newResponseEvent, deliveryTime, false};
+    Response resp = {newResponseEvent, deliveryTime};
     addToOutgoingQueue(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -1895,8 +1895,8 @@ void MESIController::sendWriteback(Command cmd, CacheLine* cacheLine, bool dirty
     
     
     uint64_t baseTime = timestamp_ > cacheLine->getTimestamp() ? timestamp_ : cacheLine->getTimestamp();
-    uint64 deliveryTime = hasData ? baseTime + accessLatency_ : baseTime + tagLatency_;
-    Response resp = {newCommandEvent, deliveryTime, false};
+    uint64_t deliveryTime = hasData ? baseTime + accessLatency_ : baseTime + tagLatency_;
+    Response resp = {newCommandEvent, deliveryTime};
     addToOutgoingQueue(resp);
     cacheLine->setTimestamp(deliveryTime);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -1915,7 +1915,7 @@ void MESIController::sendWritebackAck(MemEvent * event) {
 
     uint64_t deliveryTime = timestamp_ + tagLatency_;
 
-    Response resp = {ack, deliveryTime, false};
+    Response resp = {ack, deliveryTime};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_, "Sending AckPut at cycle = %" PRIu64 "\n", deliveryTime);
@@ -1933,7 +1933,7 @@ void MESIController::sendAckInv(Addr baseAddr, string origRqstr) {
     ack->setSize(lineSize_); // Number of bytes invalidated
 
     uint64_t deliveryTime = timestamp_ + tagLatency_;
-    Response resp = {ack, deliveryTime, false};
+    Response resp = {ack, deliveryTime};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == baseAddr) d_->debug(_L3_,"Sending AckInv at cycle = %" PRIu64 "\n", deliveryTime);
@@ -1959,7 +1959,7 @@ void MESIController::forwardFlushLine(Addr baseAddr, string origRqstr, CacheLine
     uint64_t baseTime = timestamp_;
     if (cacheLine && cacheLine->getTimestamp() > baseTime) baseTime = cacheLine->getTimestamp();
     uint64_t deliveryTime = baseTime + latency;
-    Response resp = {flush, deliveryTime, false};
+    Response resp = {flush, deliveryTime};
     addToOutgoingQueue(resp);
     if (cacheLine) cacheLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -1979,7 +1979,7 @@ void MESIController::sendFlushResponse(MemEvent * requestEvent, bool success) {
     flushResponse->setDst(requestEvent->getSrc());
 
     uint64_t deliveryTime = timestamp_ + mshrLatency_;
-    Response resp = {flushResponse, deliveryTime, false};
+    Response resp = {flushResponse, deliveryTime};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 

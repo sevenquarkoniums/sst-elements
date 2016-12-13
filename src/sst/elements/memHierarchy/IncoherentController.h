@@ -26,7 +26,7 @@ class IncoherentController : public CoherencyController{
 public:
     /** Constructor for IncoherentController. */
     IncoherentController(const Cache* cache, string ownerName, Output* dbg, CacheListener* listener, 
-            unsigned int lineSize, uint64 accessLatency, uint64 tagLatency, uint64 mshrLatency, MSHR * mshr, bool inclusive,
+            unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, MSHR * mshr, bool inclusive,
             PortManager* portMgr, bool debugAll, Addr debugAddr) :
                  CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr, 
                          listener, mshr, debugAll, debugAddr) {
