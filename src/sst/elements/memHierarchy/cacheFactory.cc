@@ -380,7 +380,7 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
         statPrefetchDrop            = registerStatistic<uint64_t>("Prefetch_drops");
     }
     /* --------------- Coherence Controllers --------------- */
-    coherenceMgr = NULL;
+    coherenceMgr_ = NULL;
     bool inclusive = cf_.type_ == "inclusive";
     isLL = true;
     lowerIsNoninclusive = false;
@@ -388,22 +388,22 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     if (!cf_.L1_) {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
             if (cf_.type_ != "noninclusive_with_directory") {
-                coherenceMgr = new MESIController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_, 
+                coherenceMgr_ = new MESIController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_, 
                     inclusive, portMgr_, DEBUG_ALL, DEBUG_ADDR);
             } else {
-                coherenceMgr = new MESIInternalDirectory(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_,
+                coherenceMgr_ = new MESIInternalDirectory(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_,
                         portMgr_, DEBUG_ALL, DEBUG_ADDR);
             }
         } else {
-            coherenceMgr = new IncoherentController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_,
+            coherenceMgr_ = new IncoherentController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_,
                     inclusive, portMgr_, DEBUG_ALL, DEBUG_ADDR);
         }
     } else {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
-            coherenceMgr = new L1CoherenceController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_, 
+            coherenceMgr_ = new L1CoherenceController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_, 
                 portMgr_, DEBUG_ALL, DEBUG_ADDR, snoopL1Invs);
         } else {
-            coherenceMgr = new L1IncoherentController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, 
+            coherenceMgr_ = new L1IncoherentController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, 
                     portMgr_, DEBUG_ALL, DEBUG_ADDR);
         }
     }

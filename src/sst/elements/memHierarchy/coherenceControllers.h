@@ -96,8 +96,8 @@ public:
     void updateTimestamp(uint64_t newTS) { timestamp_ = newTS; }
 
     // Send NACK in response to a request. Could be made virtual if needed.
-    void sendNACK(MemEvent * event, bool up) {
-        MemEvent *NACKevent = event->makeNACKResponse((Component*)owner_, event);
+    void sendNACK(MemEvent * event, bool up, SimTime_t timeInNano) {
+        MemEvent *NACKevent = event->makeNACKResponse(event, timeInNano);
     
         uint64 deliveryTime      = timestamp_ + tagLatency_;
         Response resp = {NACKevent, deliveryTime, true};
@@ -179,13 +179,13 @@ public:
     
 
     // Set upper and lower level cache names for addressing
-    void setLowerLevelCache(vector<string>* nlc) {
-        lowerLevelCacheNames_ = *(nlc);   
+    void addLowerLevelCacheName(std::string name) {
+        lowerLevelCacheNames_.push_back(name);   
     }
     
     
-    void setUpperLevelCache(vector<string>* nlc) {
-        upperLevelCacheNames_ = *(nlc);    
+    void addUpperLevelCacheName(std::string name) {
+        upperLevelCacheNames_.push_back(name);
     }
     
 
@@ -193,6 +193,9 @@ public:
         silentEvictClean_       = isLL;         // Silently evict clean blocks if there's just a memory below us
         expectWritebackAck_     = !isLL && (dirBelow || lowerIsNoninclusive);  // Expect writeback ack if there's a dir below us or a cache that is non-inclusive
         writebackCleanBlocks_   = lowerIsNoninclusive;  // Writeback clean data (if lower is non-inclusive for e.g.)
+        
+        if (lowerLevelCacheNames_.empty()) lowerLevelCacheNames_.push_back(""); // Avoid segfault
+        if (upperLevelCacheNames_.empty()) upperLevelCacheNames_.push_back(""); // Avoid segfault
     }
 
 

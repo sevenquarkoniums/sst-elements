@@ -333,8 +333,8 @@ void Cache::processNoncacheable(MemEvent* event, Command cmd, Addr baseAddr) {
             if (!inserted) {
                 d_->fatal(CALL_INFO, -1, "%s, Error inserting noncacheable request in mshr. Cmd = %s, Addr = 0x%" PRIx64 ", Time = %" PRIu64 "\n",getName().c_str(), CommandString[cmd], baseAddr, getCurrentSimTimeNano());
             }
-            if (cmd == GetS) coherenceMgr->forwardMessage(event, baseAddr, event->getSize(), 0, NULL);
-            else             coherenceMgr->forwardMessage(event, baseAddr, event->getSize(), 0, &event->getPayload());
+            if (cmd == GetS) coherenceMgr_->forwardMessage(event, baseAddr, event->getSize(), 0, NULL);
+            else             coherenceMgr_->forwardMessage(event, baseAddr, event->getSize(), 0, &event->getPayload());
             break;
         case GetSResp:
         case GetXResp:
@@ -343,7 +343,7 @@ void Cache::processNoncacheable(MemEvent* event, Command cmd, Addr baseAddr) {
                 d_->fatal(CALL_INFO, -1, "%s, Error: noncacheable response received does not match request at front of mshr. Resp cmd = %s, Resp addr = 0x%" PRIx64 ", Req cmd = %s, Req addr = 0x%" PRIx64 ", Time = %" PRIu64 "\n",
                         getName().c_str(),CommandString[cmd],baseAddr, CommandString[origRequest->getCmd()], origRequest->getBaseAddr(),getCurrentSimTimeNano());
             }
-            coherenceMgr->sendResponseUp(origRequest, NULLST, &event->getPayload(), true, 0);
+            coherenceMgr_->sendResponseUp(origRequest, NULLST, &event->getPayload(), true, 0);
             delete origRequest;
             delete event;
             break;
@@ -363,7 +363,7 @@ void Cache::processNoncacheable(MemEvent* event, Command cmd, Addr baseAddr) {
                 d_->fatal(CALL_INFO, -1, "%s, Error: noncacheable response received does not match any request in the mshr. Resp cmd = %s, Resp addr = 0x%" PRIx64 ", Req cmd = %s, Req addr = 0x%" PRIx64 ", Time = %" PRIu64 "\n",
                         getName().c_str(),CommandString[cmd],baseAddr, CommandString[origRequest->getCmd()], origRequest->getBaseAddr(),getCurrentSimTimeNano());
             }
-            coherenceMgr->sendResponseUp(origRequest, NULLST, &event->getPayload(), true, 0);
+            coherenceMgr_->sendResponseUp(origRequest, NULLST, &event->getPayload(), true, 0);
             mshrNoncacheable_->removeElement(baseAddr, origRequest);
             delete origRequest;
             delete event;
@@ -388,7 +388,7 @@ void Cache::processPrefetchEvent(SST::Event* ev) {
     if (!clockIsOn_) {
         Cycle_t time = reregisterClock(defaultTimeBase_, clockHandler_); 
         timestamp_ = time - 1;
-        coherenceMgr->updateTimestamp(timestamp_);
+        coherenceMgr_->updateTimestamp(timestamp_);
         int64_t cyclesOff = timestamp_ - lastActiveClockCycle_;
         for (int64_t i = 0; i < cyclesOff; i++) {           // TODO more efficient way to do this? Don't want to add in one-shot or we get weird averages/sum sq.
             statMSHROccupancy->addData(mshr_->getSize());
@@ -423,15 +423,11 @@ void Cache::init(unsigned int phase) {
 
 
 void Cache::setup() {
-    if (lowerLevelCacheNames_.size() == 0) lowerLevelCacheNames_.push_back(""); // avoid segfault on accessing this
-    if (upperLevelCacheNames_.size() == 0) upperLevelCacheNames_.push_back(""); // avoid segfault on accessing this
-    coherenceMgr->setLowerLevelCache(&lowerLevelCacheNames_);
-    coherenceMgr->setUpperLevelCache(&upperLevelCacheNames_);
     portMgr_->setup();
 
     bool isDirBelow = portMgr_->detectConfiguration();
     bool hasBottomNetwork = portMgr_->bottomNetworkLinkExists();
-    coherenceMgr->setupLowerStatus(isLL && !hasBottomNetwork, lowerIsNoninclusive, isDirBelow);
+    coherenceMgr_->setupLowerStatus(isLL && !hasBottomNetwork, lowerIsNoninclusive, isDirBelow);
 }
 
 
@@ -447,7 +443,7 @@ void Cache::notifyReadyEvent(MemEvent * event) {
     if (!clockIsOn_) {
         Cycle_t time = reregisterClock(defaultTimeBase_, clockHandler_); 
         timestamp_ = time - 1;
-        coherenceMgr->updateTimestamp(timestamp_);
+        coherenceMgr_->updateTimestamp(timestamp_);
         int64_t cyclesOff = timestamp_ - lastActiveClockCycle_;
         for (int64_t i = 0; i < cyclesOff; i++) {           // TODO more efficient way to do this? Don't want to add in one-shot or we get weird averages/sum sq.
             statMSHROccupancy->addData(mshr_->getSize());

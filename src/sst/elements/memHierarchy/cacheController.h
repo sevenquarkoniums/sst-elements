@@ -197,7 +197,7 @@ private:
         }
 
         /* Check if any events are ready to send - will go out through portMgr */
-        bool queuesEmpty = coherenceMgr->sendOutgoingCommands(getCurrentSimTimeNano());
+        bool queuesEmpty = coherenceMgr_->sendOutgoingCommands(getCurrentSimTimeNano());
         
         bool idle = portMgr_->clock();
         if (checkMaxWaitInterval_ > 0 && timestamp_ % checkMaxWaitInterval_ == 0) checkMaxWait();
@@ -270,11 +270,9 @@ private:
     Link*                   maxWaitSelfLink_;
     Output*                 d_;
     Output*                 d2_;
-    vector<string>          lowerLevelCacheNames_;
-    vector<string>          upperLevelCacheNames_;
     MSHR*                   mshr_;
     MSHR*                   mshrNoncacheable_;
-    CoherencyController*    coherenceMgr;
+    CoherencyController*    coherenceMgr_;
     uint64_t                accessLatency_;
     uint64_t                tagLatency_;
     uint64_t                mshrLatency_;
@@ -356,8 +354,8 @@ public:
     void setLL(bool setvalue) { isLL = setvalue; }
     void setLowerIsNoninclusive(bool setvalue) { lowerIsNoninclusive = setvalue; }
     void setSliceAware(int cacheSliceCount) { cf_.cacheArray_->setSliceAware(cacheSliceCount); }
-    void addLowerLevelCacheName(std::string name) { lowerLevelCacheNames_.push_back(name); printf("%s adding %s to lowerLevelCacheNames_\n", getName().c_str(), name.c_str()); }
-    void addUpperLevelCacheName(std::string name) { upperLevelCacheNames_.push_back(name); printf("%s adding %s to upperLevelCacheNames_\n", getName().c_str(), name.c_str()); }
+    void addLowerLevelCacheName(std::string name) { coherenceMgr_->addLowerLevelCacheName(name); }
+    void addUpperLevelCacheName(std::string name) { coherenceMgr_->addUpperLevelCacheName(name); }
 
     /* Some configuration getters used by subcomponents */
     bool isL1() { return cf_.L1_; }
