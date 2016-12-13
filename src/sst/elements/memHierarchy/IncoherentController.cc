@@ -380,7 +380,7 @@ void IncoherentController::sendWriteback(Command cmd, CacheLine* cacheLine, stri
     if (cacheLine->getState() == M) newCommandEvent->setDirty(true);
     
     uint64 deliveryTime = timestamp_ + accessLatency_;
-    Response resp = {newCommandEvent, deliveryTime, false, packetHeaderBytes_ + newCommandEvent->getPayloadSize()};
+    Response resp = {newCommandEvent, deliveryTime, false};
     addToOutgoingQueue(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -407,7 +407,7 @@ void IncoherentController::forwardFlushLine(Addr baseAddr, string origRqstr, Cac
     uint64_t baseTime = timestamp_;
     if (cacheLine && cacheLine->getTimestamp() > baseTime) baseTime = cacheLine->getTimestamp();
     uint64_t deliveryTime = baseTime + latency;
-    Response resp = {flush, deliveryTime, false, packetHeaderBytes_ + flush->getPayloadSize()};
+    Response resp = {flush, deliveryTime, false};
     addToOutgoingQueue(resp);
     if (cacheLine) cacheLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -427,7 +427,7 @@ void IncoherentController::sendFlushResponse(MemEvent * requestEvent, bool succe
     flushResponse->setDst(requestEvent->getSrc());
 
     uint64_t deliveryTime = timestamp_ + mshrLatency_;
-    Response resp = {flushResponse, deliveryTime, false, packetHeaderBytes_ + flushResponse->getPayloadSize()};
+    Response resp = {flushResponse, deliveryTime, false};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 

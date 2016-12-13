@@ -37,6 +37,7 @@
 #include "mshr.h"
 #include "replacementManager.h"
 #include "coherenceControllers.h"
+#include "portManager.h"
 #include "util.h"
 #include "cacheListener.h"
 #include "memNIC.h"
@@ -73,6 +74,8 @@ public:
     Addr toBaseAddr(Addr addr){
         return (addr) & ~(cf_.cacheArray_->getLineSize() - 1);
     }
+
+    void notifyReadyEvent(MemEvent * event);
 
 private:
     struct CacheConfig;
@@ -186,32 +189,27 @@ private:
          the clock gets deregistered from TimeVortx and reregistered only when an event is received */
     bool clockTick(Cycle_t time) {
         timestamp_++;
-        bool queuesEmpty = coherenceMgr->sendOutgoingCommands(getCurrentSimTimeNano());
-        
-        bool nicIdle = true;
-        if (bottomNetworkLink_) nicIdle = bottomNetworkLink_->clock();
-        if (checkMaxWaitInterval_ > 0 && timestamp_ % checkMaxWaitInterval_ == 0) checkMaxWait();
-        
-        // MSHR occupancy
-        statMSHROccupancy->addData(mshr_->getSize());
-        
-        // If we have waiting requests send them now
-        requestsThisCycle_ = 0;
-        while (!requestBuffer_.empty()) {
-            if (requestsThisCycle_ == maxRequestsPerCycle_) {
-                break;
-            }
-            processEvent(requestBuffer_.front(), false);
-            requestBuffer_.pop();
-            requestsThisCycle_++;
-            queuesEmpty = false;
+
+        /* Clear incoming ports with handled events */
+        while (!readyEvents_.empty()) {
+            portMgr_->notifyEventConsumed(readyEvents_.back());
+            readyEvents_.pop_back();
         }
 
-        // Disable lower-level cache clocks if they're idle
-        if (queuesEmpty && nicIdle && clockIsOn_) {
+        /* Check if any events are ready to send - will go out through portMgr */
+        bool queuesEmpty = coherenceMgr->sendOutgoingCommands(getCurrentSimTimeNano());
+        
+        bool idle = portMgr_->clock();
+        if (checkMaxWaitInterval_ > 0 && timestamp_ % checkMaxWaitInterval_ == 0) checkMaxWait();
+        
+        // MSHR occupancy statistic
+        statMSHROccupancy->addData(mshr_->getSize());
+        
+        // Disable cache clock if it is idle
+        if (queuesEmpty && idle && clockIsOn_) {
             clockIsOn_ = false;
             lastActiveClockCycle_ = time;
-            if (!maxWaitWakeupExists_) {
+            if (!maxWaitWakeupExists_) { /* set a wakeup to check for timeouts */
                 maxWaitWakeupExists_ = true;
                 maxWaitSelfLink_->send(1, NULL);
             }
@@ -268,12 +266,8 @@ private:
     CacheConfig             cf_;
     uint                    ID_;
     CacheListener*          listener_;
-    vector<Link*>*          lowNetPorts_;
-    Link*                   highNetPort_;
     Link*                   prefetchLink_;
     Link*                   maxWaitSelfLink_;
-    MemNIC*                 bottomNetworkLink_;
-    MemNIC*                 topNetworkLink_;
     Output*                 d_;
     Output*                 d2_;
     vector<string>          lowerLevelCacheNames_;
@@ -289,9 +283,6 @@ private:
     int                     maxOutstandingPrefetch_;
     int                     maxRequestsPerCycle_;
     int                     requestsThisCycle_;
-    unsigned int            maxBytesUpPerCycle_;
-    unsigned int            maxBytesDownPerCycle_;
-    std::queue<MemEvent*>   requestBuffer_;
     Clock::Handler<Cache>*  clockHandler_;
     TimeConverter*          defaultTimeBase_;
     std::map<string, LinkId_t>     nameMap_;
@@ -300,6 +291,9 @@ private:
     std::map<MemEvent*,int> missTypeList;
     bool                    DEBUG_ALL;
     Addr                    DEBUG_ADDR;
+    PortManager*            portMgr_;
+    vector<MemEvent::id_type>       readyEvents_;
+
 
     // These parameters are for the coherence controller and are detected during init
     bool                    isLL;
@@ -355,6 +349,22 @@ private:
     Statistic<uint64_t>* statPrefetchRequest;
     Statistic<uint64_t>* statPrefetchHit;
     Statistic<uint64_t>* statPrefetchDrop;
+
+public:
+
+    /* Some configuration setters used by subcomponents */
+    void setLL(bool setvalue) { isLL = setvalue; }
+    void setLowerIsNoninclusive(bool setvalue) { lowerIsNoninclusive = setvalue; }
+    void setSliceAware(int cacheSliceCount) { cf_.cacheArray_->setSliceAware(cacheSliceCount); }
+    void addLowerLevelCacheName(std::string name) { lowerLevelCacheNames_.push_back(name); printf("%s adding %s to lowerLevelCacheNames_\n", getName().c_str(), name.c_str()); }
+    void addUpperLevelCacheName(std::string name) { upperLevelCacheNames_.push_back(name); printf("%s adding %s to upperLevelCacheNames_\n", getName().c_str(), name.c_str()); }
+
+    /* Some configuration getters used by subcomponents */
+    bool isL1() { return cf_.L1_; }
+    std::string getCacheType() { return cf_.type_; }
+    unsigned int getLineSize() { return cf_.lineSize_; }
+    CoherenceProtocol getProtocol() { return cf_.protocol_; }
+
 };
 
 

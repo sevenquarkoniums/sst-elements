@@ -1814,7 +1814,7 @@ void MESIInternalDirectory::invalidateAllSharers(CacheLine * dirLine, string rqs
         inv->setDst(*it);
         inv->setRqstr(rqstr);
     
-        Response resp = {inv, deliveryTime, false, packetHeaderBytes_ + inv->getPayloadSize()};
+        Response resp = {inv, deliveryTime, false};
         addToOutgoingQueueUp(resp);
 
         mshr_->incrementAcksNeeded(dirLine->getBaseAddr());
@@ -1847,7 +1847,7 @@ void MESIInternalDirectory::invalidateAllSharersAndFetch(CacheLine * cacheLine, 
         inv->setRqstr(rqstr);
         inv->setSize(cacheLine->getSize());
     
-        Response resp = {inv, deliveryTime, false, packetHeaderBytes_ + inv->getPayloadSize()};
+        Response resp = {inv, deliveryTime, false};
         addToOutgoingQueueUp(resp);
         invSent = true;
 
@@ -1888,7 +1888,7 @@ bool MESIInternalDirectory::invalidateSharersExceptRequestor(CacheLine * cacheLi
         inv->setRqstr(origRqstr);
         inv->setSize(cacheLine->getSize());
 
-        Response resp = {inv, deliveryTime, false, packetHeaderBytes_ + inv->getPayloadSize()};
+        Response resp = {inv, deliveryTime, false};
         addToOutgoingQueueUp(resp);
         sentInv = true;
 
@@ -1914,7 +1914,7 @@ void MESIInternalDirectory::sendFetchInv(CacheLine * cacheLine, string rqstr, bo
     
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
     uint64_t deliveryTime = (replay) ? timestamp_ + mshrLatency_ : timestamp_ + tagLatency_;
-    Response resp = {fetch, deliveryTime, false, packetHeaderBytes_ + fetch->getPayloadSize()};
+    Response resp = {fetch, deliveryTime, false};
     addToOutgoingQueueUp(resp);
     cacheLine->setTimestamp(deliveryTime);
    
@@ -1933,7 +1933,7 @@ void MESIInternalDirectory::sendFetchInvX(CacheLine * cacheLine, string rqstr, b
     
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
     uint64_t deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
-    Response resp = {fetch, deliveryTime, false, packetHeaderBytes_ + fetch->getPayloadSize()};
+    Response resp = {fetch, deliveryTime, false};
     addToOutgoingQueueUp(resp);
     cacheLine->setTimestamp(deliveryTime);
     
@@ -1951,7 +1951,7 @@ void MESIInternalDirectory::sendFetch(CacheLine * cacheLine, string rqstr, bool 
     
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
     uint64_t deliveryTime = baseTime + tagLatency_;
-    Response resp = {fetch, deliveryTime, false, packetHeaderBytes_ + fetch->getPayloadSize()};
+    Response resp = {fetch, deliveryTime, false};
     addToOutgoingQueueUp(resp);
     cacheLine->setTimestamp(deliveryTime);
     
@@ -1976,7 +1976,7 @@ void MESIInternalDirectory::sendResponseDown(MemEvent* event, CacheLine * cacheL
 
     uint64_t baseTime = (timestamp_ > cacheLine->getTimestamp()) ? timestamp_ : cacheLine->getTimestamp();
     uint64 deliveryTime = replay ? baseTime + mshrLatency_ : baseTime + accessLatency_;
-    Response resp  = {responseEvent, deliveryTime, false, packetHeaderBytes_ + responseEvent->getPayloadSize()};
+    Response resp  = {responseEvent, deliveryTime, false};
     addToOutgoingQueue(resp);
     cacheLine->setTimestamp(deliveryTime);
     
@@ -1996,7 +1996,7 @@ void MESIInternalDirectory::sendResponseDownFromMSHR(MemEvent * event, bool dirt
     responseEvent->setDirty(dirty);
 
     uint64_t deliveryTime = timestamp_ + mshrLatency_;
-    Response resp = {responseEvent, deliveryTime, false, packetHeaderBytes_ + responseEvent->getPayloadSize()};
+    Response resp = {responseEvent, deliveryTime, false};
     addToOutgoingQueue(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -2012,7 +2012,7 @@ void MESIInternalDirectory::sendAckInv(Addr baseAddr, string origRqstr) {
     ack->setRqstr(origRqstr);
     
     uint64_t deliveryTime = timestamp_ + tagLatency_;
-    Response resp = {ack, deliveryTime, false, packetHeaderBytes_ + ack->getPayloadSize()};
+    Response resp = {ack, deliveryTime, false};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == baseAddr) d_->debug(_L3_,"Sending AckInv at cycle = %" PRIu64 "\n", deliveryTime);
@@ -2027,7 +2027,7 @@ void MESIInternalDirectory::sendWritebackAck(MemEvent * event) {
     ack->setSize(event->getSize());
 
     uint64_t deliveryTime = timestamp_ + tagLatency_;
-    Response resp = {ack, deliveryTime, false, packetHeaderBytes_ + ack->getPayloadSize()};
+    Response resp = {ack, deliveryTime, false};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_, "Sending AckPut at cycle = %" PRIu64 "\n", deliveryTime);
@@ -2045,7 +2045,7 @@ void MESIInternalDirectory::sendWritebackFromCache(Command cmd, CacheLine * dirL
     if (cmd == PutM) writeback->setDirty(true);
     uint64_t baseTime = (timestamp_ > dirLine->getTimestamp()) ? timestamp_ : dirLine->getTimestamp();
     uint64_t deliveryTime = baseTime + accessLatency_;
-    Response resp = {writeback, deliveryTime, false, packetHeaderBytes_ + writeback->getPayloadSize()};
+    Response resp = {writeback, deliveryTime, false};
     addToOutgoingQueue(resp);
     dirLine->setTimestamp(deliveryTime);
     
@@ -2064,7 +2064,7 @@ void MESIInternalDirectory::sendWritebackFromMSHR(Command cmd, CacheLine * dirLi
     writeback->setRqstr(rqstr);
     if (cmd == PutM) writeback->setDirty(true);
     uint64_t deliveryTime = timestamp_ + accessLatency_;
-    Response resp = {writeback, deliveryTime, false, packetHeaderBytes_ + writeback->getPayloadSize()};
+    Response resp = {writeback, deliveryTime, false};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) d_->debug(_L3_, "Sending writeback at cycle = %" PRIu64 ", Cmd = %s. From MSHR\n", deliveryTime, CommandString[cmd]);
@@ -2077,7 +2077,7 @@ void MESIInternalDirectory::sendFlushResponse(MemEvent * requestEvent, bool succ
     flushResponse->setDst(requestEvent->getSrc());
 
     uint64_t deliveryTime = timestamp_ + mshrLatency_;
-    Response resp = {flushResponse, deliveryTime, false, packetHeaderBytes_ + flushResponse->getPayloadSize()};
+    Response resp = {flushResponse, deliveryTime, false};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 
@@ -2105,7 +2105,7 @@ void MESIInternalDirectory::forwardFlushLine(MemEvent * origFlush, CacheLine * d
     uint64_t baseTime = timestamp_;
     if (dirLine && dirLine->getTimestamp() > baseTime) baseTime = dirLine->getTimestamp();
     uint64_t deliveryTime = baseTime + latency;
-    Response resp = {flush, deliveryTime, false, packetHeaderBytes_ + flush->getPayloadSize()};
+    Response resp = {flush, deliveryTime, false};
     addToOutgoingQueue(resp);
     if (dirLine) dirLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__

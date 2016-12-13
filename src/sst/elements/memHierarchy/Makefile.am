@@ -67,6 +67,10 @@ libmemHierarchy_la_SOURCES = \
 	cacheArray.h \
 	mshr.h \
 	mshr.cc \
+	portManager.h \
+	portManager.cc \
+	portManagerMulti.h \
+	portManagerMulti.cc \
 	trivialCPU.h \
 	trivialCPU.cc \
 	streamCPU.h \

@@ -395,7 +395,7 @@ uint64_t L1IncoherentController::sendResponseUp(MemEvent * event, State grantedS
     // Debugging
     if (baseTime < timestamp_) baseTime = timestamp_;
     uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : accessLatency_);
-    Response resp = {responseEvent, deliveryTime, true, packetHeaderBytes_ + responseEvent->getPayloadSize()};
+    Response resp = {responseEvent, deliveryTime, true};
     addToOutgoingQueueUp(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -422,7 +422,7 @@ void L1IncoherentController::sendWriteback(Command cmd, CacheLine* cacheLine, st
     
     
     uint64 deliveryTime = timestamp_ + accessLatency_;
-    Response resp = {writeback, deliveryTime, false, packetHeaderBytes_ + writeback->getPayloadSize()};
+    Response resp = {writeback, deliveryTime, false};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L3_,"Sending Writeback at cycle = %" PRIu64 ", Cmd = %s\n", deliveryTime, CommandString[cmd]);
@@ -447,7 +447,7 @@ void L1IncoherentController::forwardFlushLine(Addr baseAddr, Command cmd, string
     uint64_t baseTime = timestamp_;
     if (cacheLine != NULL && cacheLine->getTimestamp() > baseTime) baseTime = cacheLine->getTimestamp();
     uint64_t deliveryTime = baseTime + latency;
-    Response resp = {flush, deliveryTime, false, packetHeaderBytes_ + flush->getPayloadSize()};
+    Response resp = {flush, deliveryTime, false};
     addToOutgoingQueue(resp);
     if (cacheLine != NULL) cacheLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -465,7 +465,7 @@ void L1IncoherentController::sendFlushResponse(MemEvent * requestEvent, bool suc
     flushResponse->setRqstr(requestEvent->getRqstr());
     
     uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : tagLatency_);
-    Response resp = {flushResponse, deliveryTime, true, packetHeaderBytes_ + flushResponse->getPayloadSize()};
+    Response resp = {flushResponse, deliveryTime, true};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 

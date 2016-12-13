@@ -25,11 +25,11 @@ namespace SST { namespace MemHierarchy {
 class L1CoherenceController : public CoherencyController {
 public:
     /** Constructor for L1CoherenceController */
-    L1CoherenceController(const Cache* cache, string ownerName, Output* dbg, vector<Link*>* parentLinks, Link* childLink, CacheListener* listener, 
+    L1CoherenceController(const Cache* cache, string ownerName, Output* dbg, CacheListener* listener, 
             unsigned int lineSize, uint64 accessLatency, uint64 tagLatency, uint64 mshrLatency, MSHR * mshr, CoherenceProtocol protocol,
-            MemNIC* bottomNetworkLink, MemNIC* topNetworkLink, bool debugAll, Addr debugAddr, bool snoopL1Invs, unsigned int reqWidth, unsigned int respWidth, unsigned int packetSize) :
-                 CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, parentLinks, childLink, bottomNetworkLink, topNetworkLink, listener, mshr, 
-                         debugAll, debugAddr, reqWidth, respWidth, packetSize) {
+            PortManager * portMgr, bool debugAll, Addr debugAddr, bool snoopL1Invs) :
+                 CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr, listener, mshr, 
+                         debugAll, debugAddr) {
         d_->debug(_INFO_,"--------------------------- Initializing [L1Controller] ... \n\n");
         snoopL1Invs_        = snoopL1Invs;
         protocol_           = protocol == CoherenceProtocol::MESI;

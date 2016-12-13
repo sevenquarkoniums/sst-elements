@@ -31,7 +31,7 @@
 #include "mshr.h"
 #include "sst/core/output.h"
 #include "cacheListener.h"
-#include <boost/assert.hpp>
+#include "portManager.h"
 #include <list>
 #include <vector>
 #include "memNIC.h"
@@ -65,20 +65,15 @@ public:
         MemEvent* event;
         uint64_t deliveryTime;
         bool cpuResponse;
-        unsigned int bytesLeft;
     };
     
-    MemNIC*     bottomNetworkLink_; // Ptr to memNIC for our lower link (if network-connected)
-    MemNIC*     topNetworkLink_;    // Ptr to memNIC for our upper link (if network-connected)
+    PortManager* portMgr_;
     uint64_t    timestamp_;         // Local timestamp (cycles)
     uint64_t    accessLatency_;     // Cache access latency
     uint64_t    tagLatency_;        // Cache tag access latency
     uint64_t    mshrLatency_;       // MSHR lookup latency
     string      name_;              // Name of cache we are associated with
     MSHR *      mshr_;              // Pointer to cache's MSHR, coherence controllers are responsible for managing writeback acks
-    unsigned int maxBytesDownPerCycle_; // Number of bytes we can send down (request link width)    
-    unsigned int maxBytesUpPerCycle_;   // Number of bytes we can send up (response link width)    
-    unsigned int packetHeaderBytes_;    // Number of bytes in a packet header/control message (8B by default)
 
     list<Response> outgoingEventQueue_;
     list<Response> outgoingEventQueueUp_;
@@ -105,7 +100,7 @@ public:
         MemEvent *NACKevent = event->makeNACKResponse((Component*)owner_, event);
     
         uint64 deliveryTime      = timestamp_ + tagLatency_;
-        Response resp = {NACKevent, deliveryTime, true, packetHeaderBytes_};
+        Response resp = {NACKevent, deliveryTime, true};
         if (up) {
             addToOutgoingQueueUp(resp);
         } else {
@@ -126,7 +121,7 @@ public:
     
         if (baseTime < timestamp_) baseTime = timestamp_;
         uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : accessLatency_);
-        Response resp = {responseEvent, deliveryTime, true, packetHeaderBytes_ + responseEvent->getPayloadSize()};
+        Response resp = {responseEvent, deliveryTime, true};
         addToOutgoingQueueUp(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
@@ -145,7 +140,7 @@ public:
         event->incrementRetries();
 
         uint64 deliveryTime =  timestamp_ + mshrLatency_ + backoff;
-        Response resp = {event, deliveryTime, false, packetHeaderBytes_ + event->getPayloadSize()};
+        Response resp = {event, deliveryTime, false};
         if (!up) addToOutgoingQueue(resp);
         else addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
@@ -174,7 +169,7 @@ public:
             deliveryTime = timestamp_ + mshrLatency_;
         } else deliveryTime = baseTime + tagLatency_; 
     
-        Response fwdReq = {forwardEvent, deliveryTime, false, packetHeaderBytes_ + forwardEvent->getPayloadSize()};
+        Response fwdReq = {forwardEvent, deliveryTime, false};
         addToOutgoingQueue(fwdReq);
 #ifdef __SST_DEBUG_OUTPUT__
         if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_,"Forwarding request at cycle = %" PRIu64 "\n", deliveryTime);        
@@ -209,24 +204,10 @@ public:
         // Update timestamp
         timestamp_++;
         
-        unsigned int bytesLeftThisCycle = maxBytesDownPerCycle_;
         // Send events down
         while(!outgoingEventQueue_.empty() && outgoingEventQueue_.front().deliveryTime <= timestamp_) {
             MemEvent *outgoingEvent = outgoingEventQueue_.front().event;
-            if (maxBytesDownPerCycle_ != 0) {
-                if (bytesLeftThisCycle == 0) { 
-                    break; 
-                } else if (outgoingEventQueue_.front().bytesLeft > bytesLeftThisCycle) {
-                    outgoingEventQueue_.front().bytesLeft -= bytesLeftThisCycle;
-                   // printf("(%s) Sending %u bytes (%u left) for request (%s, %" PRIx64 ", %s) at time %" PRIu64 "\n", 
-                   //         name_.c_str(), bytesLeftThisCycle, outgoingEventQueue_.front().bytesLeft, CommandString[outgoingEvent->getCmd()], outgoingEvent->getBaseAddr(), outgoingEvent->getRqstr().c_str(), timestamp_);
-                    break;
-                } else {
-                   // printf("(%s) Sending last %u bytes for request (%s, %" PRIx64 ", %s) at time %" PRIu64 "\n", 
-                   //         name_.c_str(), outgoingEventQueue_.front().bytesLeft, CommandString[outgoingEvent->getCmd()], outgoingEvent->getBaseAddr(), outgoingEvent->getRqstr().c_str(), timestamp_);
-                    bytesLeftThisCycle -= outgoingEventQueue_.front().bytesLeft;
-                }
-            }
+            portMgr_->sendTowardsMem(outgoingEvent);
             recordEventSentDown(outgoingEvent->getCmd());
 #ifdef __SST_DEBUG_OUTPUT__
             if (DEBUG_ALL || outgoingEvent->getBaseAddr() == DEBUG_ADDR) {
@@ -235,35 +216,13 @@ public:
                    outgoingEvent->getDst().c_str(), outgoingEvent->isPrefetch() ? "true" : "false", outgoingEvent->getSize(), outgoingEvent->getPayloadSize(), timestamp_, curTime);
             }
 #endif
-
-            if(bottomNetworkLink_) {
-                outgoingEvent->setDst(bottomNetworkLink_->findTargetDestination(outgoingEvent->getBaseAddr()));
-                bottomNetworkLink_->send(outgoingEvent);
-            } else {
-                lowNetPorts_->at(0)->send(outgoingEvent);
-            }
             outgoingEventQueue_.pop_front();
         }
         
         // Send events up
-        bytesLeftThisCycle = maxBytesUpPerCycle_;
         while(!outgoingEventQueueUp_.empty() && outgoingEventQueueUp_.front().deliveryTime <= timestamp_) {
             MemEvent * outgoingEvent = outgoingEventQueueUp_.front().event;
-            if (maxBytesUpPerCycle_ != 0) {
-                if (bytesLeftThisCycle == 0) { 
-                    break; 
-                } else if (outgoingEventQueueUp_.front().bytesLeft > bytesLeftThisCycle) {
-                    outgoingEventQueueUp_.front().bytesLeft -= bytesLeftThisCycle;
-                   // printf("(%s) Sending %u bytes (%u left) for response (%s, %" PRIx64 ", %s) at time %" PRIu64 "\n", 
-                   //         name_.c_str(), bytesLeftThisCycle, outgoingEventQueueUp_.front().bytesLeft, CommandString[outgoingEvent->getCmd()], outgoingEvent->getBaseAddr(), outgoingEvent->getRqstr().c_str(), timestamp_);
-                    break;
-                } else {
-                   // printf("(%s) Sending last %u bytes for response (%s, %" PRIx64 ", %s) at time %" PRIu64 "\n", 
-                   //         name_.c_str(), outgoingEventQueueUp_.front().bytesLeft, CommandString[outgoingEvent->getCmd()], outgoingEvent->getBaseAddr(), outgoingEvent->getRqstr().c_str(), timestamp_);
-                    bytesLeftThisCycle -= outgoingEventQueueUp_.front().bytesLeft;
-                }
-            }
-
+            portMgr_->sendTowardsCPU(outgoingEvent);
             recordEventSentUp(outgoingEvent->getCmd());
 #ifdef __SST_DEBUG_OUTPUT__
             if (DEBUG_ALL || outgoingEvent->getBaseAddr() == DEBUG_ADDR) {
@@ -272,12 +231,6 @@ public:
                    outgoingEvent->getDst().c_str(), outgoingEvent->isPrefetch() ? "true" : "false", outgoingEvent->getSize(), outgoingEvent->getPayloadSize(), timestamp_, curTime);
             }
 #endif
-
-            if (topNetworkLink_) {
-                topNetworkLink_->send(outgoingEvent);
-            } else {
-                highNetPort_->send(outgoingEvent);
-            }
             outgoingEventQueueUp_.pop_front();
         }
         return (outgoingEventQueue_.empty() && outgoingEventQueueUp_.empty());
@@ -333,8 +286,7 @@ public:
 
 protected:
     CoherencyController(const Cache* cache, Output* dbg, string name, uint lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, 
-            vector<Link*>* parentLinks, Link* childLink, MemNIC* bottomNetworkLink, MemNIC* topNetworkLink, CacheListener* listener, MSHR * mshr, 
-            bool debugAll, Addr debugAddr, unsigned int reqWidth, unsigned int respWidth, unsigned int packetSize):
+            PortManager* portMgr, CacheListener* listener, MSHR * mshr, bool debugAll, Addr debugAddr):
                         timestamp_(0), accessLatency_(1), tagLatency_(1), owner_(cache), d_(dbg), lineSize_(lineSize), sentEvents_(0) {
         name_                   = name;
         accessLatency_          = accessLatency;
@@ -343,14 +295,8 @@ protected:
         mshr_                   = mshr;
         DEBUG_ALL               = debugAll;
         DEBUG_ADDR              = debugAddr;
-        bottomNetworkLink_      = bottomNetworkLink;
-        topNetworkLink_         = topNetworkLink;
-        lowNetPorts_            = parentLinks;
-        highNetPort_            = childLink;
+        portMgr_                = portMgr;
         listener_               = listener;
-        maxBytesUpPerCycle_     = respWidth;
-        maxBytesDownPerCycle_   = reqWidth;
-        packetHeaderBytes_      = packetSize;
 
         // Register statistics - TODO register in a protocol-specific way??
         stat_evict_I = ((Component *)owner_)->registerStatistic<uint64_t>("evict_I");
@@ -536,8 +482,6 @@ protected:
     bool            silentEvictClean_;      // Silently evict clean blocks (currently ok when just mem below us)
     bool            expectWritebackAck_;    // Whether we should expect a writeback ack
 
-    vector<Link*>*  lowNetPorts_;
-    Link*           highNetPort_;
     vector<string>  lowerLevelCacheNames_;
     vector<string>  upperLevelCacheNames_;
 

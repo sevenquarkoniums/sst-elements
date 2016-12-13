@@ -45,6 +45,7 @@
 #include "membackend/timingAddrMapper.h"
 #include "networkMemInspector.h"
 #include "memNetBridge.h"
+#include "portManager.h"
 
 #ifdef HAVE_GOBLIN_HMCSIM
 #include "membackend/goblinHMCBackend.h"
@@ -87,6 +88,9 @@ static const ElementInfoParam cache_params[] = {
     {"access_latency_cycles",   "Required, int - Latency (in cycles) to access the cache data array. This latency is paid by cache hits and coherence requests that need to return data."},
     {"L1",                      "Required, bool - Required for L1s, specifies whether cache is an L1. Options: 0[not L1], 1[L1]", "false"},
     /* Not required */
+    {"port_count",              "Optional, int - Number of read/write ports (read or write or both) supported by the cache. A port can process and return up to 1 request  of up to port.width size per cycle", "1"},
+    {"port.%(port_count)d.type", "Optional, string - Port type - r (read), w (write), or rw (read/write)", "rw"},
+    {"port.%(port_count)d.width","Optional, string - Width of the port in bytes, with units.", "64B"},
     {"cache_line_size",         "Optional, int - Size of a cache line (aka cache block) in bytes.", "64"},
     {"hash_function",           "Optional, int - 0 - none (default), 1 - linear, 2 - XOR", "0"},
     {"coherence_protocol",      "Optional, string - Coherence protocol. Options: MESI, MSI, NONE", "MESI"},
@@ -348,6 +352,14 @@ static const ElementInfoStatistic cache_statistics[] = {
     {"EventStalledForLockedCacheline",  "Number of times an event (FetchInv, FetchInvX, eviction, Fetch, etc.) was stalled because a cache line was locked", "instances", 1},
     {NULL, NULL, NULL, 0}
 };
+
+static SubComponent* create_PortManager(Component* comp, Params& params){
+    return new PortManager(comp, params);
+}
+
+static SubComponent* create_PortManagerMulti(Component* comp, Params& params){
+    return new PortManager(comp, params);
+}
 
 static Component* create_BroadcastShim(ComponentId_t id, Params& params)
 {
@@ -876,6 +888,24 @@ static const ElementInfoParam bridge_params[] = {
 };
 
 static const ElementInfoSubComponent subcomponents[] = {
+    {
+        "PortManager",
+        "Default port manager, does not implement ports",
+        NULL, /* Advanced help */
+        create_PortManager, /* Module Alloc w/ params */
+        NULL,
+        NULL, /* statistics */
+        "SST::MemHierarchy::PortManager"
+    },
+    {
+        "PortManagerMulti",
+        "Manages cache ports, buffers events if ports unavailable",
+        NULL, /* Advanced help */
+        create_PortManagerMulti, /* Module Alloc w/ params */
+        NULL,
+        NULL, /* statistics */
+        "SST::MemHierarchy::PortManager"
+    },
     {
         "simpleMemBackendConvertor",
         "convert MemEvent to base mem backend",

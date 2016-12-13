@@ -26,11 +26,11 @@ namespace SST { namespace MemHierarchy {
 class MESIInternalDirectory : public CoherencyController {
 public:
     /** Constructor for MESIInternalDirectory. */
-    MESIInternalDirectory(const Cache* directory, string ownerName, Output* dbg, vector<Link*>* parentLinks, Link* childLink, CacheListener* listener, 
+    MESIInternalDirectory(const Cache* directory, string ownerName, Output* dbg, CacheListener* listener, 
             unsigned int lineSize, uint64 accessLatency, uint64 tagLatency, uint64 mshrLatency, MSHR * mshr, CoherenceProtocol protocol,
-            MemNIC* bottomNetworkLink, MemNIC* topNetworkLink, bool debugAll, Addr debugAddr, unsigned int reqWidth, unsigned int respWidth, unsigned int packetSize) :
-                 CoherencyController(directory, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, parentLinks, childLink, 
-                         bottomNetworkLink, topNetworkLink, listener, mshr, debugAll, debugAddr, reqWidth, respWidth, packetSize) {
+            PortManager * portMgr, bool debugAll, Addr debugAddr) :
+                 CoherencyController(directory, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr, 
+                         listener, mshr, debugAll, debugAddr) {
         d_->debug(_INFO_,"--------------------------- Initializing [MESI + Directory Controller] ... \n\n");
         protocol_           = protocol == CoherenceProtocol::MESI;
 
