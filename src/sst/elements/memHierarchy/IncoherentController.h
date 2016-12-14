@@ -99,6 +99,8 @@ private:
    
     void printData(vector<uint8_t> * data, bool set);
 
+/* Statistics */
+    void recordStateEventCount(Command cmd, State state);
 };
 
 

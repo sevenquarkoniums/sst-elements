@@ -46,21 +46,16 @@ CoherenceController::CoherenceController(Component * comp, Params &params) : Sub
 
     /* Initialize variables */
     timestamp_ = 0;
-        // Register statistics - TODO move many of these to individual coherence protocol managers
-        stat_evict_I =      registerStatistic<uint64_t>("evict_I");
-        stat_evict_S =      registerStatistic<uint64_t>("evict_S");
-        stat_evict_E =      registerStatistic<uint64_t>("evict_E");
-        stat_evict_M =      registerStatistic<uint64_t>("evict_M");
-        stat_evict_IS =     registerStatistic<uint64_t>("evict_IS");
-        stat_evict_IM =     registerStatistic<uint64_t>("evict_IM");
-        stat_evict_SM =     registerStatistic<uint64_t>("evict_SM");
-        stat_evict_SInv =   registerStatistic<uint64_t>("evict_SInv");
-        stat_evict_EInv =   registerStatistic<uint64_t>("evict_EInv");
-        stat_evict_MInv =   registerStatistic<uint64_t>("evict_MInv");
-        stat_evict_SMInv =  registerStatistic<uint64_t>("evict_SMInv");
-        stat_evict_EInvX =  registerStatistic<uint64_t>("evict_EInvX");
-        stat_evict_MInvX =  registerStatistic<uint64_t>("evict_MInvX");
-        stat_evict_SI =     registerStatistic<uint64_t>("evict_SI");
+
+    // Register statistics - only those that are common across all coherence managers
+    // TODO move many of these to individual coherence protocol managers
+    stat_evict_I =      registerStatistic<uint64_t>("evict_I");
+    stat_evict_E =      registerStatistic<uint64_t>("evict_E");
+    stat_evict_M =      registerStatistic<uint64_t>("evict_M");
+    stat_evict_IS =     registerStatistic<uint64_t>("evict_IS");
+    stat_evict_IM =     registerStatistic<uint64_t>("evict_IM");
+    stat_evict_IB =     registerStatistic<uint64_t>("evict_IB");
+    stat_evict_SB =     registerStatistic<uint64_t>("evict_SB");
 
         stat_stateEvent_GetS_I =    registerStatistic<uint64_t>("stateEvent_GetS_I");
         stat_stateEvent_GetS_S =    registerStatistic<uint64_t>("stateEvent_GetS_S");
@@ -214,8 +209,6 @@ CoherenceController::CoherenceController(Component * comp, Params &params) : Sub
         stat_eventSent_AckPut = registerStatistic<uint64_t>("eventSent_AckPut");
         stat_eventSent_NACK_up = registerStatistic<uint64_t>("eventSent_NACK_up");
         stat_eventSent_NACK_down = registerStatistic<uint64_t>("eventSent_NACK_down");
-        
-        stat_eventStalledForLock = registerStatistic<uint64_t>("EventStalledForLockedCacheline");
 }
 
 
@@ -615,9 +608,6 @@ void CoherenceController::recordEvictionState(State state) {
             case I:
                 stat_evict_I->addData(1);
                 break;
-            case S:
-                stat_evict_S->addData(1);
-                break;
             case E:
                 stat_evict_E->addData(1);
                 break;
@@ -630,30 +620,11 @@ void CoherenceController::recordEvictionState(State state) {
             case IM:
                 stat_evict_IM->addData(1);
                 break;
-            case SM:
-                stat_evict_SM->addData(1);
+            case I_B:
+                stat_evict_IB->addData(1);
                 break;
-            case SI:
-                stat_evict_SI->addData(1);
-                break;
-            case S_Inv:
-                stat_evict_SInv->addData(1);
-                break;
-            case E_Inv:
-                stat_evict_EInv->addData(1);
-                break;
-            case M_Inv:
-                stat_evict_MInv->addData(1);
-                break;
-            case SM_Inv:
-                stat_evict_SMInv->addData(1);
-                break;
-            case E_InvX:
-                stat_evict_EInvX->addData(1);
-                break;
-            case M_InvX:
-                stat_evict_MInvX->addData(1);
-                break;
+            case S_B:
+                stat_evict_SB->addData(1);
             default:
                 break;
         }

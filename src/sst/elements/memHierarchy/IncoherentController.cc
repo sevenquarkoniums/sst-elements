@@ -53,6 +53,9 @@ CacheAction IncoherentController::handleEviction(CacheLine* wbCacheLine, string 
             wbCacheLine->setState(I);
             return DONE;
         case IS:
+        case IM:
+        case S_B:
+        case I_B:
             return STALL;
         default:
 	    debug->fatal(CALL_INFO,-1,"%s, Error: State is invalid during eviction: %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
@@ -237,6 +240,14 @@ CacheAction IncoherentController::handleGetXRequest(MemEvent* event, CacheLine* 
     uint64_t sendTime = 0;
 
     switch (state) {
+        case I:
+            forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), 0, NULL);
+            notifyListenerOfAccess(event, NotifyAccessType::WROTE, NotifyResultType::MISS);
+            cacheLine->setState(IM);
+#ifdef __SST_DEBUG_OUTPUT__
+            debug->debug(_L6_,"Forwarding GetX, new state IM\n");
+#endif
+            return STALL;
         case E:
         case M:
             notifyListenerOfAccess(event, NotifyAccessType::WRITE, NotifyResultType::HIT);
@@ -456,3 +467,77 @@ void IncoherentController::printData(vector<uint8_t> * data, bool set) {
     */
 }
 
+
+/*----------------------------------------------------------------------------------------------------------------------
+ *  Miscellaneous helper functions
+ *---------------------------------------------------------------------------------------------------------------------*/
+
+
+void IncoherentController::recordStateEventCount(Command cmd, State state) {
+    switch (cmd) {
+        case GetS:
+            if (state == I) stat_stateEvent_GetS_I->addData(1);
+            else if (state == E) stat_stateEvent_GetS_E->addData(1);
+            else if (state == M) stat_stateEvent_GetS_M->addData(1);
+            break;
+        case GetX:    
+            if (state == I) stat_stateEvent_GetX_I->addData(1);
+            else if (state == E) stat_stateEvent_GetX_E->addData(1);
+            else if (state == M) stat_stateEvent_GetX_M->addData(1);
+            break;
+        case GetSEx:    
+            if (state == I) stat_stateEvent_GetSEx_I->addData(1);
+            else if (state == E) stat_stateEvent_GetSEx_E->addData(1);
+            else if (state == M) stat_stateEvent_GetSEx_M->addData(1);
+            break;
+        case GetSResp:
+            if (state == IS) stat_stateEvent_GetSResp_IS->addData(1);
+            break;
+        case GetXResp:
+            if (state == IM) stat_stateEvent_GetSResp_IM->addData(1);
+            break;
+        case PutE:
+            if (state == I) stat_stateEvent_PutE_I->addData(1);
+            else if (state == E) stat_stateEvent_PutE_E->addData(1);
+            else if (state == M) stat_stateEvent_PutE_M->addData(1);
+            else if (state == IS) stat_stateEvent_PutE_IS->addData(1);
+            else if (state == IM) stat_stateEvent_PutE_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_PutE_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_PutE_SB->addData(1);
+            break;
+        case PutM:
+            if (state == I) stat_stateEvent_PutM_I->addData(1);
+            else if (state == E) stat_stateEvent_PutM_E->addData(1);
+            else if (state == M) stat_stateEvent_PutM_M->addData(1);
+            else if (state == IS) stat_stateEvent_PutM_IS->addData(1);
+            else if (state == IM) stat_stateEvent_PutM_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_PutM_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_PutM_SB->addData(1);
+            break;
+        case FlushLine:
+            if (state == I) stat_stateEvent_FlushLine_I->addData(1);
+            else if (state == E) stat_stateEvent_FlushLine_E->addData(1);
+            else if (state == M) stat_stateEvent_FlushLine_M->addData(1);
+            else if (state == IS) stat_stateEvent_FlushLine_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FlushLine_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLine_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLine_SB->addData(1);
+            break;
+        case FlushLineInv:
+            if (state == I) stat_stateEvent_FlushLineInv_I->addData(1);
+            else if (state == E) stat_stateEvent_FlushLineInv_E->addData(1);
+            else if (state == M) stat_stateEvent_FlushLineInv_M->addData(1);
+            else if (state == IS) stat_stateEvent_FlushLineInv_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FlushLineInv_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLineInv_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLineInv_SB->addData(1);
+            break;
+        case FlushLineResp:
+            if (state == I) stat_stateEvent_FlushLineResp_I->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLineResp_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLineResp_SB->addData(1);
+            break;
+        default:
+            break;
+    }
+}

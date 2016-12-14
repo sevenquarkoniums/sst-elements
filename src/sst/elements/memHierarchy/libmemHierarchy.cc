@@ -350,6 +350,8 @@ static const ElementInfoStatistic coherence_statistics[] = {
     {"evict_EInvX",             "Eviction: Attempted to evict a block in state E_InvX", "count", 3},
     {"evict_MInvX",             "Eviction: Attempted to evict a block in state M_InvX", "count", 3},
     {"evict_SI",                "Eviction: Attempted to evict a block in state SI", "count", 3},
+    {"evict_IB",                "Eviction: Attempted to evict a block in state S_B", "count", 3},
+    {"evict_SB",                "Eviction: Attempted to evict a block in state I_B", "count", 3},
     /* Latency for different kinds of misses*/
     {"latency_GetS_IS",         "Latency for read misses in I state", "cycles", 1},
     {"latency_GetS_M",          "Latency for read misses that find the block owned by another cache in M state", "cycles", 1},

@@ -104,7 +104,7 @@ public:
     }
 
     /***** Statistics *****/
-    void recordLatency(Command cmd, State state, uint64_t latency);
+    virtual void recordLatency(Command cmd, State state, uint64_t latency);
     
 protected:
     struct Response {
@@ -157,10 +157,10 @@ protected:
     std::string getDestination(Addr baseAddr);
     
     /* Statistics */
-    void recordStateEventCount(Command cmd, State state);
-    void recordEvictionState(State state);
-    void recordEventSentUp(Command cmd);
-    void recordEventSentDown(Command cmd);
+    virtual void recordStateEventCount(Command cmd, State state);
+    virtual void recordEvictionState(State state);
+    virtual void recordEventSentUp(Command cmd);
+    virtual void recordEventSentDown(Command cmd);
 
     /* Listener callback */
     virtual void notifyListenerOfAccess(MemEvent * event, NotifyAccessType accessT, NotifyResultType resultT);
@@ -168,19 +168,12 @@ protected:
 
     // Eviction statistics, count how many times we attempted to evict a block in a particular state
     Statistic<uint64_t>* stat_evict_I;
-    Statistic<uint64_t>* stat_evict_S;
     Statistic<uint64_t>* stat_evict_E;
     Statistic<uint64_t>* stat_evict_M;
     Statistic<uint64_t>* stat_evict_IS;
     Statistic<uint64_t>* stat_evict_IM;
-    Statistic<uint64_t>* stat_evict_SM;
-    Statistic<uint64_t>* stat_evict_SInv;
-    Statistic<uint64_t>* stat_evict_EInv;
-    Statistic<uint64_t>* stat_evict_MInv;
-    Statistic<uint64_t>* stat_evict_SMInv;
-    Statistic<uint64_t>* stat_evict_EInvX;
-    Statistic<uint64_t>* stat_evict_MInvX;
-    Statistic<uint64_t>* stat_evict_SI;
+    Statistic<uint64_t>* stat_evict_IB;
+    Statistic<uint64_t>* stat_evict_SB;
 
     // State/event combinations for Stats API TODO is there a cleaner way to enumerate & declare these?
     Statistic<uint64_t>* stat_stateEvent_GetS_I;
@@ -315,30 +308,27 @@ protected:
     Statistic<uint64_t>* stat_latency_GetX_M;
     Statistic<uint64_t>* stat_latency_GetSEx_IM;
     Statistic<uint64_t>* stat_latency_GetSEx_SM;
-    Statistic<uint64_t>* stat_latency_GetSEx_M;
+    Statistic<uint64_t>* stat_latency_GetSEx_M;     
    
     // Count events sent
-    Statistic<uint64_t>* stat_eventSent_GetS;
-    Statistic<uint64_t>* stat_eventSent_GetX;
-    Statistic<uint64_t>* stat_eventSent_GetSEx;
-    Statistic<uint64_t>* stat_eventSent_GetSResp;
-    Statistic<uint64_t>* stat_eventSent_GetXResp;
-    Statistic<uint64_t>* stat_eventSent_PutS;
-    Statistic<uint64_t>* stat_eventSent_PutE;
-    Statistic<uint64_t>* stat_eventSent_PutM;
-    Statistic<uint64_t>* stat_eventSent_Inv;
-    Statistic<uint64_t>* stat_eventSent_Fetch;
-    Statistic<uint64_t>* stat_eventSent_FetchInv;
-    Statistic<uint64_t>* stat_eventSent_FetchInvX;
-    Statistic<uint64_t>* stat_eventSent_FetchResp;
-    Statistic<uint64_t>* stat_eventSent_FetchXResp;
-    Statistic<uint64_t>* stat_eventSent_AckInv;
-    Statistic<uint64_t>* stat_eventSent_AckPut;
-    Statistic<uint64_t>* stat_eventSent_NACK_up;
-    Statistic<uint64_t>* stat_eventSent_NACK_down;
-
-
-    Statistic<uint64_t>* stat_eventStalledForLock;
+    Statistic<uint64_t>* stat_eventSent_GetS;       // All
+    Statistic<uint64_t>* stat_eventSent_GetX;       // All
+    Statistic<uint64_t>* stat_eventSent_GetSEx;     // All
+    Statistic<uint64_t>* stat_eventSent_GetSResp;   // All
+    Statistic<uint64_t>* stat_eventSent_GetXResp;   // All
+    Statistic<uint64_t>* stat_eventSent_PutS;       // All
+    Statistic<uint64_t>* stat_eventSent_PutE;       // All
+    Statistic<uint64_t>* stat_eventSent_PutM;       // All
+    Statistic<uint64_t>* stat_eventSent_Inv;        // Non-L1
+    Statistic<uint64_t>* stat_eventSent_Fetch;      
+    Statistic<uint64_t>* stat_eventSent_FetchInv;   // Non-L1
+    Statistic<uint64_t>* stat_eventSent_FetchInvX;  // Non-L1
+    Statistic<uint64_t>* stat_eventSent_FetchResp;  // All
+    Statistic<uint64_t>* stat_eventSent_FetchXResp; // All
+    Statistic<uint64_t>* stat_eventSent_AckInv;     // All
+    Statistic<uint64_t>* stat_eventSent_AckPut;     // Non-L1
+    Statistic<uint64_t>* stat_eventSent_NACK_up;    // Non-L1
+    Statistic<uint64_t>* stat_eventSent_NACK_down;  // All
 
 };
 

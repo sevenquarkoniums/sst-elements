@@ -490,3 +490,59 @@ void L1IncoherentController::printData(vector<uint8_t> * data, bool set) {
 }
 
 
+/***********************
+ * Statistics functions
+ ***********************/
+
+
+void L1IncoherentController::recordStateEventCount(Command cmd, State state) {
+    switch (cmd) {
+        case GetS:
+            if (state == I) stat_stateEvent_GetS_I->addData(1);
+            else if (state == E) stat_stateEvent_GetS_E->addData(1);
+            else if (state == M) stat_stateEvent_GetS_M->addData(1);
+            break;
+        case GetX:
+            if (state == I) stat_stateEvent_GetX_I->addData(1);
+            else if (state == E) stat_stateEvent_GetX_E->addData(1);
+            else if (state == M) stat_stateEvent_GetX_M->addData(1);
+            break;
+        case GetSEx:
+            if (state == I) stat_stateEvent_GetSEx_I->addData(1);
+            else if (state == E) stat_stateEvent_GetSEx_E->addData(1);
+            else if (state == M) stat_stateEvent_GetSEx_M->addData(1);
+            break;
+        case GetSResp:
+            if (state == IS) stat_stateEvent_GetSResp_IS->addData(1);
+            break;
+        case GetXResp:
+            if (state == IM) stat_stateEvent_GetXResp_IM->addData(1);
+            break;
+        case FlushLine:
+            if (state == I) stat_stateEvent_FlushLine_I->addData(1);
+            else if (state == E) stat_stateEvent_FlushLine_E->addData(1);
+            else if (state == M) stat_stateEvent_FlushLine_M->addData(1);
+            else if (state == IS) stat_stateEvent_FlushLine_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FlushLine_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLine_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLine_SB->addData(1);
+            break;
+        case FlushLineInv:
+            if (state == I) stat_stateEvent_FlushLineInv_I->addData(1);
+            else if (state == E) stat_stateEvent_FlushLineInv_E->addData(1);
+            else if (state == M) stat_stateEvent_FlushLineInv_M->addData(1);
+            else if (state == IS) stat_stateEvent_FlushLineInv_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FlushLineInv_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLineInv_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLineInv_SB->addData(1);
+            break;
+        case FlushLineResp:
+            if (state == I) stat_stateEvent_FlushLineResp_I->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLineResp_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLineResp_SB->addData(1);
+            break;
+        default:
+            break;
+    }
+}
+

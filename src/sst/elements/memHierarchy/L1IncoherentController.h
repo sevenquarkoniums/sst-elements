@@ -27,7 +27,36 @@ public:
     /** Constructor for L1IncoherentController */
     L1IncoherentController(Component* comp, Params& params) : CoherenceController(comp, params) {
         debug->debug(_INFO_,"--------------------------- Initializing [L1Controller] ... \n\n");
-        
+       
+        /* Register statistics */
+        stat_stateEvent_GetS_I = registerStatistic<uint64_t>("stateEvent_GetS_I");
+        stat_stateEvent_GetS_E = registerStatistic<uint64_t>("stateEvent_GetS_E");
+        stat_stateEvent_GetS_M = registerStatistic<uint64_t>("stateEvent_GetS_M");
+        stat_stateEvent_GetX_I = registerStatistic<uint64_t>("stateEvent_GetX_I");
+        stat_stateEvent_GetX_E = registerStatistic<uint64_t>("stateEvent_GetX_E");
+        stat_stateEvent_GetX_M = registerStatistic<uint64_t>("stateEvent_GetX_M");
+        stat_stateEvent_GetSEx_I = registerStatistic<uint64_t>("stateEvent_GetSEx_I");
+        stat_stateEvent_GetSEx_E = registerStatistic<uint64_t>("stateEvent_GetSEx_E");
+        stat_stateEvent_GetSEx_M = registerStatistic<uint64_t>("stateEvent_GetSEx_M");
+        stat_stateEvent_GetSResp_IS = registerStatistic<uint64_t>("stateEvent_GetXResp_IS");
+        stat_stateEvent_GetXResp_IM = registerStatistic<uint64_t>("stateEvent_GetXResp_IM");
+        stat_stateEvent_FlushLine_I = registerStatistic<uint64_t>("stateEvent_FlushLine_I");
+        stat_stateEvent_FlushLine_E = registerStatistic<uint64_t>("stateEvent_FlushLine_E");
+        stat_stateEvent_FlushLine_M = registerStatistic<uint64_t>("stateEvent_FlushLine_M");
+        stat_stateEvent_FlushLine_IS = registerStatistic<uint64_t>("stateEvent_FlushLine_IS");
+        stat_stateEvent_FlushLine_IM = registerStatistic<uint64_t>("stateEvent_FlushLine_IM");
+        stat_stateEvent_FlushLine_IB = registerStatistic<uint64_t>("stateEvent_FlushLine_IB");
+        stat_stateEvent_FlushLine_SB = registerStatistic<uint64_t>("stateEvent_FlushLine_SB");
+        stat_stateEvent_FlushLineInv_I = registerStatistic<uint64_t>("stateEvent_FlushLineInv_I");
+        stat_stateEvent_FlushLineInv_E = registerStatistic<uint64_t>("stateEvent_FlushLineInv_E");
+        stat_stateEvent_FlushLineInv_M = registerStatistic<uint64_t>("stateEvent_FlushLineInv_M");
+        stat_stateEvent_FlushLineInv_IS = registerStatistic<uint64_t>("stateEvent_FlushLineInv_IS");
+        stat_stateEvent_FlushLineInv_IM = registerStatistic<uint64_t>("stateEvent_FlushLineInv_IM");
+        stat_stateEvent_FlushLineInv_IB = registerStatistic<uint64_t>("stateEvent_FlushLineInv_IB");
+        stat_stateEvent_FlushLineInv_SB = registerStatistic<uint64_t>("stateEvent_FlushLineInv_SB");
+        stat_stateEvent_FlushLineResp_I = registerStatistic<uint64_t>("stateEvent_FlushLineResp_I");
+        stat_stateEvent_FlushLineResp_IB = registerStatistic<uint64_t>("stateEvent_FlushLineResp_IB");
+        stat_stateEvent_FlushLineResp_SB = registerStatistic<uint64_t>("stateEvent_FlushLineResp_SB");
     }
 
     ~L1IncoherentController() {}
@@ -66,6 +95,36 @@ public:
     void printData(vector<uint8_t> * data, bool set);
 
 private:
+    /* Statistics */
+    Statistic<uint64_t>* stat_stateEvent_GetS_I;
+    Statistic<uint64_t>* stat_stateEvent_GetS_E;
+    Statistic<uint64_t>* stat_stateEvent_GetS_M;
+    Statistic<uint64_t>* stat_stateEvent_GetX_I;
+    Statistic<uint64_t>* stat_stateEvent_GetX_E;
+    Statistic<uint64_t>* stat_stateEvent_GetX_M;
+    Statistic<uint64_t>* stat_stateEvent_GetSEx_I;
+    Statistic<uint64_t>* stat_stateEvent_GetSEx_E;
+    Statistic<uint64_t>* stat_stateEvent_GetSEx_M;
+    Statistic<uint64_t>* stat_stateEvent_GetSResp_IS;
+    Statistic<uint64_t>* stat_stateEvent_GetXResp_IM;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_I;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_E;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_M;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_IS;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_IM;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_IB;
+    Statistic<uint64_t>* stat_stateEvent_FlushLine_SB;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_I;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_E;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_M;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_IS;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_IM;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_IB;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineInv_SB;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineResp_I;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineResp_IB;
+    Statistic<uint64_t>* stat_stateEvent_FlushLineResp_SB;
+    
     /* Private event handlers */
     /** Handle GetX request. Request upgrade if needed */
     CacheAction handleGetXRequest(MemEvent* event, CacheLine* cacheLine, bool replay);

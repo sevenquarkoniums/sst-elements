@@ -2132,3 +2132,293 @@ void MESIInternalDirectory::printData(vector<uint8_t> * data, bool set) {
 */ 
 }
 
+
+/*----------------------------------------------------------------------------------------------------------------------
+ *  Statistics recording
+ *---------------------------------------------------------------------------------------------------------------------*/
+
+
+/* Record state of a line at attempted eviction */
+void MESIInternalDirectory::recordEvictionState(State state) {
+    switch (state) {
+        case I: 
+            stat_evict_I->addData(1);
+            break;
+        case S:
+            stat_evict_S->addData(1); 
+            break;
+        case E:
+            stat_evict_E->addData(1); 
+            break;
+        case M:
+            stat_evict_M->addData(1); 
+            break;
+        case IS:
+            stat_evict_IS->addData(1); 
+            break;
+        case IM:
+            stat_evict_IM->addData(1); 
+            break;
+        case SM:
+            stat_evict_SM->addData(1); 
+            break;
+        case S_Inv:
+            stat_evict_SInv->addData(1); 
+            break;
+        case E_Inv:
+            stat_evict_EInv->addData(1); 
+            break;
+        case M_Inv:
+            stat_evict_MInv->addData(1); 
+            break;
+        case SM_Inv:
+            stat_evict_SMInv->addData(1); 
+            break;
+        case E_InvX:
+            stat_evict_EInvX->addData(1); 
+            break;
+        case M_InvX:
+            stat_evict_MInvX->addData(1); 
+            break;
+        case SI:
+            stat_evict_SI->addData(1); 
+            break;
+        case I_B:
+            stat_evict_IB->addData(1);
+            break;
+        case S_B:
+            stat_evict_SB->addData(1);
+            break;
+        default:
+            break; // No error, statistic handling
+    }
+}
+
+
+void MESIController::recordStateEventCount(Command cmd, State state) {
+    switch (cmd) {
+        case GetS:
+            if (state == I) stat_stateEvent_GetS_I->addData(1);
+            else if (state == S) stat_stateEvent_GetS_S->addData(1);
+            else if (state == E) stat_stateEvent_GetS_E->addData(1);
+            else if (state == M) stat_stateEvent_GetS_M->addData(1);
+            break;
+        case GetX:
+            if (state == I) stat_stateEvent_GetX_I->addData(1);
+            else if (state == S) stat_stateEvent_GetX_S->addData(1);
+            else if (state == E) stat_stateEvent_GetX_E->addData(1);
+            else if (state == M) stat_stateEvent_GetX_M->addData(1);
+            else if (state == SM) stat_stateEvent_GetX_SM->addData(1);
+            break;
+        case GetSEx:
+            if (state == I) stat_stateEvent_GetSEx_I->addData(1);
+            else if (state == S) stat_stateEvent_GetSEx_S->addData(1);
+            else if (state == E) stat_stateEvent_GetSEx_E->addData(1);
+            else if (state == M) stat_stateEvent_GetSEx_M->addData(1);
+            else if (state == SM) stat_stateEvent_GetSEx_SM->addData(1);
+            break;
+        case GetSResp:
+            if (state == IS) stat_stateEvent_GetSResp_IS->addData(1);
+            break;
+        case GetXResp:
+            if (state == IM) stat_stateEvent_GetXResp_IM->addData(1);
+            else if (state == SM) stat_stateEvent_GetXResp_SM->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_GetXResp_SM_Inv->addData(1);
+            break;
+        case PutS:
+            if (state == I) stat_stateEvent_PutS_I->addData(1);
+            else if (state == S) stat_stateEvent_PutS_S->addData(1);
+            else if (state == E) stat_stateEvent_PutS_E->addData(1);
+            else if (state == M) stat_stateEvent_PutS_M->addData(1);
+            else if (state == M_Inv) stat_stateEvent_PutS_MInv->addData(1);
+            else if (state == E_Inv) stat_stateEvent_PutS_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_PutS_EInvX->addData(1);
+            else if (state == S_Inv) stat_stateEvent_PutS_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_PutS_SMInv->addData(1);
+            else if (state == MI) stat_stateEvent_PutS_MI->addData(1);
+            else if (state == EI) stat_stateEvent_PutS_EI->addData(1);
+            else if (state == SI) stat_stateEvent_PutS_SI->addData(1);
+            else if (state == I_B) stat_stateEvent_PutS_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_PutS_SB->addData(1);
+            else if (state == SB_Inv) stat_stateEvent_PutS_SBInv->addData(1);
+            else if (state == S_D) stat_stateEvent_PutS_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_PutS_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_PutS_MD->addData(1);
+            else if (state == SM_D) stat_stateEvent_PutS_SMD->addData(1);
+            break;
+        case PutE:
+            if (state == I) stat_stateEvent_PutE_I->addData(1);
+            else if (state == E) stat_stateEvent_PutE_E->addData(1);
+            else if (state == M) stat_stateEvent_PutE_E->addData(1);
+            else if (state == M_Inv) stat_stateEvent_PutE_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_PutE_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_PutE_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_PutE_EInvX->addData(1);
+            else if (state == MI) stat_stateEvent_PutE_MI->addData(1);
+            else if (state == EI) stat_stateEvent_PutE_EI->addData(1);
+            break;
+        case PutM:
+            if (state == I) stat_stateEvent_PutM_I->addData(1);
+            else if (state == E) stat_stateEvent_PutM_E->addData(1);
+            else if (state == M) stat_stateEvent_PutM_M->addData(1);
+            else if (state == M_Inv) stat_stateEvent_PutM_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_PutM_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_PutM_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_PutM_EInvX->addData(1);
+            else if (state == MI) stat_stateEvent_PutM_MI->addData(1);
+            else if (state == EI) stat_stateEvent_PutM_EI->addData(1);
+            break;
+        case Inv:
+            if (state == I) stat_stateEvent_Inv_I->addData(1);
+            else if (state == S) stat_stateEvent_Inv_S->addData(1);
+            else if (state == SM) stat_stateEvent_Inv_SM->addData(1);
+            else if (state == M_Inv) stat_stateEvent_Inv_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_Inv_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_Inv_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_Inv_EInvX->addData(1);
+            else if (state == S_Inv) stat_stateEvent_Inv_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_Inv_SMInv->addData(1);
+            else if (state == SI) stat_stateEvent_Inv_SI->addData(1);
+            else if (state == EI) stat_stateEvent_Inv_EI->addData(1);
+            else if (state == MI) stat_stateEvent_Inv_MI->addData(1);
+            else if (state == S_B) stat_stateEvent_Inv_SB->addData(1);
+            else if (state == I_B) stat_stateEvent_Inv_IB->addData(1);
+            else if (state == S_D) stat_stateEvent_Inv_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_Inv_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_Inv_MD->addData(1);
+            break;
+        case FetchInvX:
+            if (state == I) stat_stateEvent_FetchInvX_I->addData(1);
+            else if (state == E) stat_stateEvent_FetchInvX_E->addData(1);
+            else if (state == M) stat_stateEvent_FetchInvX_M->addData(1);
+            else if (state == IS) stat_stateEvent_FetchInvX_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FetchInvX_IM->addData(1);
+            else if (state == I_B) stat_stateEvent_FetchInvX_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FetchInvX_SB->addData(1);
+            break;
+        case Fetch:
+            if (state == I) stat_stateEvent_Fetch_I->addData(1);
+            else if (state == S) stat_stateEvent_Fetch_S->addData(1);
+            else if (state == IS) stat_stateEvent_Fetch_IS->addData(1);
+            else if (state == IM) stat_stateEvent_Fetch_IM->addData(1);
+            else if (state == SM) stat_stateEvent_Fetch_SM->addData(1);
+            else if (state == S_D) stat_stateEvent_Fetch_SD->addData(1);
+            else if (state == S_Inv) stat_stateEvent_Fetch_SInv->addData(1);
+            else if (state == SI) stat_stateEvent_Fetch_SI->addData(1);
+            break;
+        case FetchInv:
+            if (state == I) stat_stateEvent_FetchInv_I->addData(1);
+            else if (state == E) stat_stateEvent_FetchInv_E->addData(1);
+            else if (state == M) stat_stateEvent_FetchInv_M->addData(1);
+            else if (state == IS) stat_stateEvent_FetchInv_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FetchInv_IM->addData(1);
+            else if (state == M_Inv) stat_stateEvent_FetchInv_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_FetchInv_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_FetchInv_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_FetchInv_EInvX->addData(1);
+            else if (state == MI) stat_stateEvent_FetchInv_MI->addData(1);
+            else if (state == EI) stat_stateEvent_FetchInv_EI->addData(1);
+            else if (state == I_B) stat_stateEvent_FetchInv_IB->addData(1);
+            else if (state == S_D) stat_stateEvent_FetchInv_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_FetchInv_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_FetchInv_MD->addData(1);
+            break;
+        case FetchResp:
+            if (state == M_Inv) stat_stateEvent_FetchResp_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_FetchResp_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_FetchResp_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_FetchResp_EInvX->addData(1);
+            else if (state == S_D) stat_stateEvent_FetchResp_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_FetchResp_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_FetchResp_MD->addData(1);
+            else if (state == SM_D) stat_stateEvent_FetchResp_SMD->addData(1);
+            else if (state == S_Inv) stat_stateEvent_FetchResp_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_FetchResp_SMInv->addData(1);
+            else if (state == MI) stat_stateEvent_FetchResp_MI->addData(1);
+            else if (state == EI) stat_stateEvent_FetchResp_EI->addData(1);
+            else if (state == SI) stat_stateEvent_FetchResp_SI->addData(1);
+            break;
+        case FetchXResp:
+            if (state == M_Inv) stat_stateEvent_FetchXResp_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_FetchXResp_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_FetchXResp_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_FetchXResp_EInvX->addData(1);
+            else if (state == S_D) stat_stateEvent_FetchXResp_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_FetchXResp_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_FetchXResp_MD->addData(1);
+            else if (state == SM_D) stat_stateEvent_FetchXResp_SMD->addData(1);
+            else if (state == S_Inv) stat_stateEvent_FetchXResp_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_FetchXResp_SMInv->addData(1);
+            else if (state == MI) stat_stateEvent_FetchXResp_MI->addData(1);
+            else if (state == EI) stat_stateEvent_FetchXResp_EI->addData(1);
+            else if (state == SI) stat_stateEvent_FetchXResp_SI->addData(1);
+            break;
+        case AckInv:
+            if (state == I) stat_stateEvent_AckInv_I->addData(1);
+            else if (state == M_Inv) stat_stateEvent_AckInv_MInv->addData(1);
+            else if (state == E_Inv) stat_stateEvent_AckInv_EInv->addData(1);
+            else if (state == S_Inv) stat_stateEvent_AckInv_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_AckInv_SMInv->addData(1);
+            else if (state == MI) stat_stateEvent_AckInv_MI->addData(1);
+            else if (state == EI) stat_stateEvent_AckInv_EI->addData(1);
+            else if (state == SI) stat_stateEvent_AckInv_SI->addData(1);
+            else if (state == SB_Inv) stat_stateEvent_AckInv_SBInv->addData(1);
+            break;
+        case AckPut:
+            if (state == I) stat_stateEvent_AckPut_I->addData(1);
+            break;
+        case FlushLine:
+            if (state == I) stat_stateEvent_FlushLine_I->addData(1);
+            else if (state == S) stat_stateEvent_FlushLine_S->addData(1);
+            else if (state == E) stat_stateEvent_FlushLine_E->addData(1);
+            else if (state == M) stat_stateEvent_FlushLine_M->addData(1);
+            else if (state == IS) stat_stateEvent_FlushLine_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FlushLine_IM->addData(1);
+            else if (state == SM) stat_stateEvent_FlushLine_SM->addData(1);
+            else if (state == M_Inv) stat_stateEvent_FlushLine_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_FlushLine_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_FlushLine_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_FlushLine_EInvX->addData(1);
+            else if (state == S_Inv) stat_stateEvent_FlushLine_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_FlushLine_SMInv->addData(1);
+            else if (state == S_D) stat_stateEvent_FlushLine_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_FlushLine_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_FlushLine_MD->addData(1);
+            else if (state == SM_D) stat_stateEvent_FlushLine_SMD->addData(1);
+            else if (state == MI) stat_stateEvent_FlushLine_MI->addData(1);
+            else if (state == EI) stat_stateEvent_FlushLine_EI->addData(1);
+            else if (state == SI) stat_stateEvent_FlushLine_SI->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLine_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLine_SB->addData(1);
+            break;
+        case FlushLineInv:
+            if (state == I) stat_stateEvent_FlushLineInv_I->addData(1);
+            else if (state == S) stat_stateEvent_FlushLineInv_S->addData(1);
+            else if (state == E) stat_stateEvent_FlushLineInv_E->addData(1);
+            else if (state == M) stat_stateEvent_FlushLineInv_M->addData(1);
+            else if (state == IS) stat_stateEvent_FlushLineInv_IS->addData(1);
+            else if (state == IM) stat_stateEvent_FlushLineInv_IM->addData(1);
+            else if (state == SM) stat_stateEvent_FlushLineInv_SM->addData(1);
+            else if (state == M_Inv) stat_stateEvent_FlushLineInv_MInv->addData(1);
+            else if (state == M_InvX) stat_stateEvent_FlushLineInv_MInvX->addData(1);
+            else if (state == E_Inv) stat_stateEvent_FlushLineInv_EInv->addData(1);
+            else if (state == E_InvX) stat_stateEvent_FlushLineInv_EInvX->addData(1);
+            else if (state == S_Inv) stat_stateEvent_FlushLineInv_SInv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_FlushLineInv_SMInv->addData(1);
+            else if (state == S_D) stat_stateEvent_FlushLineInv_SD->addData(1);
+            else if (state == E_D) stat_stateEvent_FlushLineInv_ED->addData(1);
+            else if (state == M_D) stat_stateEvent_FlushLineInv_MD->addData(1);
+            else if (state == SM_D) stat_stateEvent_FlushLineInv_SMD->addData(1);
+            else if (state == MI) stat_stateEvent_FlushLineInv_MI->addData(1);
+            else if (state == EI) stat_stateEvent_FlushLineInv_EI->addData(1);
+            else if (state == SI) stat_stateEvent_FlushLineInv_SI->addData(1);
+            break;
+        case FlushLineResp:
+            if (state == I) stat_stateEvent_FlushLineResp_I->addData(1);
+            else if (state == I_B) stat_stateEvent_FlushLineResp_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FlushLineResp_SB->addData(1);
+            break;
+        default:
+            break;
+    }
+}
