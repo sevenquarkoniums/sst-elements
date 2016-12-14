@@ -61,12 +61,12 @@ CacheAction MESIInternalDirectory::handleEviction(CacheLine* replacementLine, st
             return DONE;
         case S:
             if (replacementLine->numSharers() > 0 && !fromDataCache) {
-                if (isCached || collision) invalidateAllSharers(replacementLine, name_, false);
-                else invalidateAllSharersAndFetch(replacementLine, name_, false);    // Fetch needed for PutS
+                if (isCached || collision) invalidateAllSharers(replacementLine, parent->getName(), false);
+                else invalidateAllSharersAndFetch(replacementLine, parent->getName(), false);    // Fetch needed for PutS
                 replacementLine->setState(SI);
                 return STALL;
             }
-            if (!isCached && !collision) d_->fatal(CALL_INFO, -1, "%s (dir), Error: evicting uncached block with no sharers. Addr = 0x%" PRIx64 ", State = %s\n", name_.c_str(), replacementLine->getBaseAddr(), StateString[state]);
+            if (!isCached && !collision) debug->fatal(CALL_INFO, -1, "%s (dir), Error: evicting uncached block with no sharers. Addr = 0x%" PRIx64 ", State = %s\n", parent->getName().c_str(), replacementLine->getBaseAddr(), StateString[state]);
             if (fromDataCache && replacementLine->numSharers() > 0) return DONE; // lazy deallocation - we don't need to do anything if the block exists elsewhere
             if (isCached) sendWritebackFromCache(PutS, replacementLine, origRqstr);
             else sendWritebackFromMSHR(PutS, replacementLine, origRqstr, mshr_->getTempData(wbBaseAddr));
@@ -75,18 +75,18 @@ CacheAction MESIInternalDirectory::handleEviction(CacheLine* replacementLine, st
             return DONE;
         case E:
             if (replacementLine->numSharers() > 0 && !fromDataCache) { // May or may not be cached
-                if (isCached || collision) invalidateAllSharers(replacementLine, name_, false);
-                else invalidateAllSharersAndFetch(replacementLine, name_, false);
+                if (isCached || collision) invalidateAllSharers(replacementLine, parent->getName(), false);
+                else invalidateAllSharersAndFetch(replacementLine, parent->getName(), false);
                 replacementLine->setState(EI);
                 return STALL;
             } else if (replacementLine->ownerExists() && !fromDataCache) { // Not cached
-                sendFetchInv(replacementLine, name_, false);
+                sendFetchInv(replacementLine, parent->getName(), false);
                 mshr_->incrementAcksNeeded(wbBaseAddr);
                 replacementLine->setState(EI);
                 return STALL;
             } else { // Must be cached
                 if (!isCached && !collision) 
-                    d_->fatal(CALL_INFO, -1, "%s (dir), Error: evicting uncached block with no sharers or owner. Addr = 0x%" PRIx64 ", State = %s\n", name_.c_str(), replacementLine->getBaseAddr(), StateString[state]);
+                    debug->fatal(CALL_INFO, -1, "%s (dir), Error: evicting uncached block with no sharers or owner. Addr = 0x%" PRIx64 ", State = %s\n", parent->getName().c_str(), replacementLine->getBaseAddr(), StateString[state]);
                 if (fromDataCache && (replacementLine->numSharers() > 0 || replacementLine->ownerExists())) return DONE; // lazy deallocation - we don't need to do anything if the block exists elsewhere
                 if (isCached) sendWritebackFromCache(PutE, replacementLine, origRqstr);
                 else sendWritebackFromMSHR(PutE, replacementLine, origRqstr, mshr_->getTempData(wbBaseAddr));
@@ -96,18 +96,18 @@ CacheAction MESIInternalDirectory::handleEviction(CacheLine* replacementLine, st
             }
         case M:
             if (replacementLine->numSharers() > 0 && !fromDataCache) {
-                if (isCached || collision) invalidateAllSharers(replacementLine, name_, false);
-                else invalidateAllSharersAndFetch(replacementLine, name_, false);
+                if (isCached || collision) invalidateAllSharers(replacementLine, parent->getName(), false);
+                else invalidateAllSharersAndFetch(replacementLine, parent->getName(), false);
                 replacementLine->setState(MI);
                 return STALL;
             } else if (replacementLine->ownerExists() && !fromDataCache) {
-                sendFetchInv(replacementLine, name_, false);
+                sendFetchInv(replacementLine, parent->getName(), false);
                 mshr_->incrementAcksNeeded(wbBaseAddr);
                 replacementLine->setState(MI);
                 return STALL;
             } else {
                 if (!isCached && !collision) 
-                    d_->fatal(CALL_INFO, -1, "%s (dir), Error: evicting uncached block with no sharers or owner. Addr = 0x%" PRIx64 ", State = %s\n", name_.c_str(), replacementLine->getBaseAddr(), StateString[state]);
+                    debug->fatal(CALL_INFO, -1, "%s (dir), Error: evicting uncached block with no sharers or owner. Addr = 0x%" PRIx64 ", State = %s\n", parent->getName().c_str(), replacementLine->getBaseAddr(), StateString[state]);
                 if (fromDataCache && (replacementLine->numSharers() > 0 || replacementLine->ownerExists())) return DONE; // lazy deallocation - we don't need to do anything if the block exists elsewhere
                 if (isCached) sendWritebackFromCache(PutM, replacementLine, origRqstr);
                 else sendWritebackFromMSHR(PutM, replacementLine, origRqstr, mshr_->getTempData(wbBaseAddr));
@@ -125,8 +125,8 @@ CacheAction MESIInternalDirectory::handleEviction(CacheLine* replacementLine, st
         case I_B:
             return STALL;
         default:
-	    d_->fatal(CALL_INFO,-1,"%s (dir), Error: State is invalid during eviction: %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), StateString[state], replacementLine->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+	    debug->fatal(CALL_INFO,-1,"%s (dir), Error: State is invalid during eviction: %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), StateString[state], replacementLine->getBaseAddr(), getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 }
@@ -142,8 +142,8 @@ CacheAction MESIInternalDirectory::handleRequest(MemEvent * event, CacheLine * d
         case GetSEx:
             return handleGetXRequest(event, dirLine, replay);
         default:
-            d_->fatal(CALL_INFO, -1, "%s (dir), Errror: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s (dir), Errror: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 
@@ -166,8 +166,8 @@ CacheAction MESIInternalDirectory::handleReplacement(MemEvent* event, CacheLine*
         case FlushLine:
             return handleFlushLineRequest(event, dirLine, reqEvent, replay);
         default:
-	    d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received an unrecognized replacement: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), ((Component *)owner_)->getCurrentSimTimeNano());
+	    debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received an unrecognized replacement: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     
     return DONE;    // Eliminate compiler warning
@@ -205,8 +205,8 @@ CacheAction MESIInternalDirectory::handleInvalidationRequest(MemEvent * event, C
         case FetchInvX:
             return handleFetchInvX(event, dirLine, replay, collisionEvent);
         default:
-	    d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received an unrecognized invalidation: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), ((Component *)owner_)->getCurrentSimTimeNano());
+	    debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received an unrecognized invalidation: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return STALL; // eliminate compiler warning
 }
@@ -241,8 +241,8 @@ CacheAction MESIInternalDirectory::handleResponse(MemEvent * respEvent, CacheLin
             else if (dirLine) dirLine->setState(I);
             return DONE;
         default:
-            d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received unrecognized response: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[cmd], respEvent->getBaseAddr(), respEvent->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received unrecognized response: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[cmd], respEvent->getBaseAddr(), respEvent->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return DONE;    // Eliminate compiler warning
 }
@@ -277,8 +277,8 @@ bool MESIInternalDirectory::isRetryNeeded(MemEvent * event, CacheLine * dirLine)
             if (!dirLine->isSharer(event->getDst())) return false;
             return true;
         default:
-            d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received NACK for unrecognized event: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received NACK for unrecognized event: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return true;
 }
@@ -297,7 +297,7 @@ int MESIInternalDirectory::isCoherenceMiss(MemEvent* event, CacheLine* cacheLine
     if (cmd == GetSEx) cmd = GetX;  // for our purposes these are equal
 
     if (state == I) return 1;
-    if (event->isPrefetch() && event->getRqstr() == name_) return 0;
+    if (event->isPrefetch() && event->getRqstr() == parent->getName()) return 0;
     
     switch (state) {
         case S:
@@ -339,7 +339,7 @@ int MESIInternalDirectory::isCoherenceMiss(MemEvent* event, CacheLine* cacheLine
 CacheAction MESIInternalDirectory::handleGetSRequest(MemEvent* event, CacheLine* dirLine, bool replay) {
     State state = dirLine->getState();
     
-    bool shouldRespond = !(event->isPrefetch() && (event->getRqstr() == name_));
+    bool shouldRespond = !(event->isPrefetch() && (event->getRqstr() == parent->getName()));
     recordStateEventCount(event->getCmd(), state);    
     bool isCached = dirLine->getDataLine() != NULL;
     uint64_t sendTime = 0;
@@ -392,9 +392,9 @@ CacheAction MESIInternalDirectory::handleGetSRequest(MemEvent* event, CacheLine*
                 return STALL;
             }
         default:
-            d_->fatal(CALL_INFO,-1,"%s (dir), Error: Handling a GetS request but coherence state is not valid and stable. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(), 
-                    StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO,-1,"%s (dir), Error: Handling a GetS request but coherence state is not valid and stable. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(), 
+                    StateString[state], getCurrentSimTimeNano());
 
     }
     return STALL;    // eliminate compiler warning
@@ -454,8 +454,8 @@ CacheAction MESIInternalDirectory::handleGetXRequest(MemEvent* event, CacheLine*
         case SM:
             return STALL;   // retried this request too soon (TODO fix so we don't even attempt retry)!
         default:
-            d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received %s int unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[cmd], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received %s int unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[cmd], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 }
@@ -538,8 +538,8 @@ CacheAction MESIInternalDirectory::handlePutSRequest(MemEvent * event, CacheLine
                 dirLine->setTimestamp(sendTime);
                 if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) printData(&event->getPayload(), false);
             } else {
-                d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                        name_.c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
+                        parent->getName().c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), getCurrentSimTimeNano());
             }
             return DONE;
         case E_Inv:
@@ -570,8 +570,8 @@ CacheAction MESIInternalDirectory::handlePutSRequest(MemEvent * event, CacheLine
                 }
                 if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) printData(&event->getPayload(), false);
             } else {
-                d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                        name_.c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
+                        parent->getName().c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), getCurrentSimTimeNano());
             }
             return DONE;
         case E_InvX: // PutS raced with Fetch from FetchInvX
@@ -584,8 +584,8 @@ CacheAction MESIInternalDirectory::handlePutSRequest(MemEvent * event, CacheLine
                     sendResponseDownFromMSHR(event, false);
                 }
             } else {
-                d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                        name_.c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
+                        parent->getName().c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), getCurrentSimTimeNano());
             }
             return DONE;
         case M_Inv: // PutS raced with AckInv from GetX, PutS raced with AckInv from FetchInv
@@ -628,8 +628,8 @@ CacheAction MESIInternalDirectory::handlePutSRequest(MemEvent * event, CacheLine
                 if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) printData(&event->getPayload(), false);
 #endif
             } else {
-                d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                        name_.c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received PutS in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
+                        parent->getName().c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), getCurrentSimTimeNano());
             }
             return DONE;
         case SM_Inv:
@@ -659,9 +659,9 @@ CacheAction MESIInternalDirectory::handlePutSRequest(MemEvent * event, CacheLine
             } 
             return DONE;
         default:
-            d_->fatal(CALL_INFO, -1, "%s, Error: Received PutS in unhandled state. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(),
-                    StateString[state], ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s, Error: Received PutS in unhandled state. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(),
+                    StateString[state], getCurrentSimTimeNano());
     }
     return action; // eliminate compiler warning
 }
@@ -696,7 +696,7 @@ CacheAction MESIInternalDirectory::handlePutMRequest(MemEvent * event, CacheLine
             if (event->getDirty()) dirLine->setState(MI);
         case MI:
             dirLine->clearOwner();
-            sendWritebackFromMSHR(((dirLine->getState() == EI) ? PutE : PutM), dirLine, name_, &event->getPayload());
+            sendWritebackFromMSHR(((dirLine->getState() == EI) ? PutE : PutM), dirLine, parent->getName(), &event->getPayload());
             if (expectWritebackAck_) mshr_->insertWriteback(dirLine->getBaseAddr());
             dirLine->setState(I);
             break;
@@ -770,8 +770,8 @@ CacheAction MESIInternalDirectory::handlePutMRequest(MemEvent * event, CacheLine
             }
             return DONE;
         default:
-    	    d_->fatal(CALL_INFO, -1, "%s, Error: Updating data but cache is not in E or M state. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+    	    debug->fatal(CALL_INFO, -1, "%s, Error: Updating data but cache is not in E or M state. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return DONE;
 }
@@ -873,8 +873,8 @@ CacheAction MESIInternalDirectory::handleFlushLineRequest(MemEvent * event, Cach
                 return DONE;
             } else return STALL;
         default:
-            d_->fatal(CALL_INFO, -1, "%s, Error: Received %s in unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[event->getCmd()], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s, Error: Received %s in unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[event->getCmd()], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
 
     forwardFlushLine(event, dirLine, dirLine && dirLine->getState() == M, FlushLine);
@@ -996,8 +996,8 @@ CacheAction MESIInternalDirectory::handleFlushLineInvRequest(MemEvent * event, C
                     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) printData(&event->getPayload(), false);
 #endif
                 } else {
-                    d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received FlushLineInv in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                            name_.c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                    debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received FlushLineInv in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
+                            parent->getName().c_str(), StateString[state], CommandString[reqEvent->getCmd()], event->getBaseAddr(), getCurrentSimTimeNano());
                 }
                 return DONE;
             }
@@ -1041,8 +1041,8 @@ CacheAction MESIInternalDirectory::handleFlushLineInvRequest(MemEvent * event, C
                     dirLine->setState(SM);
                     return STALL; // Waiting for GetXResp
                 }
-                d_->fatal(CALL_INFO, -1, "%s, Error: Received %s in state SM_Inv but case does not match an implemented handler. Addr = 0x%" PRIx64 ", Src = %s, OrigEvent = %s. Time = %" PRIu64 "ns\n",
-                        name_.c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), CommandString[reqEvent->getCmd()], ((Component*)owner_)->getCurrentSimTimeNano());
+                debug->fatal(CALL_INFO, -1, "%s, Error: Received %s in state SM_Inv but case does not match an implemented handler. Addr = 0x%" PRIx64 ", Src = %s, OrigEvent = %s. Time = %" PRIu64 "ns\n",
+                        parent->getName().c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), CommandString[reqEvent->getCmd()], getCurrentSimTimeNano());
             }
             return STALL;
         case MI:
@@ -1054,8 +1054,8 @@ CacheAction MESIInternalDirectory::handleFlushLineInvRequest(MemEvent * event, C
                 mshr_->decrementAcksNeeded(event->getBaseAddr());
             }
             if (mshr_->getAcksNeeded(event->getBaseAddr()) == 0) {
-                if (isCached) sendWritebackFromCache(PutM, dirLine, name_);
-                else sendWritebackFromMSHR(PutM, dirLine, name_, mshr_->getTempData(event->getBaseAddr()));
+                if (isCached) sendWritebackFromCache(PutM, dirLine, parent->getName());
+                else sendWritebackFromMSHR(PutM, dirLine, parent->getName(), mshr_->getTempData(event->getBaseAddr()));
                 if (expectWritebackAck_) mshr_->insertWriteback(dirLine->getBaseAddr());
                 dirLine->setState(I);
                 return DONE;
@@ -1070,10 +1070,10 @@ CacheAction MESIInternalDirectory::handleFlushLineInvRequest(MemEvent * event, C
             }
             if (event->getDirty()) dirLine->setState(MI);
             if (mshr_->getAcksNeeded(event->getBaseAddr()) == 0) {
-                if (isCached && event->getDirty()) sendWritebackFromCache(PutM, dirLine, name_);
-                else if (isCached) sendWritebackFromCache(PutE, dirLine, name_);
-                else if (event->getDirty()) sendWritebackFromMSHR(PutM, dirLine, name_, mshr_->getTempData(event->getBaseAddr()));
-                else sendWritebackFromMSHR(PutE, dirLine, name_, mshr_->getTempData(event->getBaseAddr()));
+                if (isCached && event->getDirty()) sendWritebackFromCache(PutM, dirLine, parent->getName());
+                else if (isCached) sendWritebackFromCache(PutE, dirLine, parent->getName());
+                else if (event->getDirty()) sendWritebackFromMSHR(PutM, dirLine, parent->getName(), mshr_->getTempData(event->getBaseAddr()));
+                else sendWritebackFromMSHR(PutE, dirLine, parent->getName(), mshr_->getTempData(event->getBaseAddr()));
                 if (expectWritebackAck_) mshr_->insertWriteback(dirLine->getBaseAddr());
                 dirLine->setState(I);
                 return DONE;
@@ -1084,8 +1084,8 @@ CacheAction MESIInternalDirectory::handleFlushLineInvRequest(MemEvent * event, C
                 mshr_->decrementAcksNeeded(event->getBaseAddr());
             }
             if (mshr_->getAcksNeeded(event->getBaseAddr()) == 0) {
-                if (isCached) sendWritebackFromCache(PutS, dirLine, name_);
-                else sendWritebackFromMSHR(PutS, dirLine, name_, mshr_->getTempData(event->getBaseAddr()));
+                if (isCached) sendWritebackFromCache(PutS, dirLine, parent->getName());
+                else sendWritebackFromMSHR(PutS, dirLine, parent->getName(), mshr_->getTempData(event->getBaseAddr()));
                 if (expectWritebackAck_) mshr_->insertWriteback(dirLine->getBaseAddr());
                 dirLine->setState(I);
                 return DONE;
@@ -1172,8 +1172,8 @@ CacheAction MESIInternalDirectory::handleFlushLineInvRequest(MemEvent * event, C
                 return DONE;
             } else return STALL;
         default:
-            d_->fatal(CALL_INFO, -1, "%s, Error: Received %s in unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[event->getCmd()], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s, Error: Received %s in unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[event->getCmd()], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
 
     forwardFlushLine(event, dirLine, dirLine && dirLine->getState() == M, FlushLineInv);
@@ -1242,8 +1242,8 @@ CacheAction MESIInternalDirectory::handleInv(MemEvent* event, CacheLine* dirLine
         case SM_Inv:    // Waiting on GetSResp, stall this Inv until invacks come back
             return STALL;
         default:
-	    d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received an invalidation in an unhandled state: %s. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+	    debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received an invalidation in an unhandled state: %s. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return STALL;
 }
@@ -1282,8 +1282,8 @@ CacheAction MESIInternalDirectory::handleFetch(MemEvent * event, CacheLine * dir
         case S_D:
             return BLOCK; // Block while current request completes
         default:
-            d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received Fetch but state is unhandled. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
-                        name_.c_str(), event->getAddr(), event->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received Fetch but state is unhandled. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
+                        parent->getName().c_str(), event->getAddr(), event->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 }
@@ -1326,8 +1326,8 @@ CacheAction MESIInternalDirectory::handleFetchInv(MemEvent * event, CacheLine * 
                 dirLine->setState(S_Inv);
                 return STALL;
             }
-            if (dirLine->getDataLine() == NULL && !collision) d_->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
-                    name_.c_str(), event->getAddr(), StateString[state]);
+            if (dirLine->getDataLine() == NULL && !collision) debug->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
+                    parent->getName().c_str(), event->getAddr(), StateString[state]);
             sendResponseDown(event, dirLine, collision ? mshr_->getTempData(dirLine->getBaseAddr()) : dirLine->getDataLine()->getData(), false, replay);
             dirLine->setState(I);
             return DONE;
@@ -1338,8 +1338,8 @@ CacheAction MESIInternalDirectory::handleFetchInv(MemEvent * event, CacheLine * 
                 dirLine->setState(SM_Inv);
                 return STALL;
             }
-            if (dirLine->getDataLine() == NULL) d_->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
-                    name_.c_str(), event->getAddr(), StateString[state]);
+            if (dirLine->getDataLine() == NULL) debug->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
+                    parent->getName().c_str(), event->getAddr(), StateString[state]);
             sendResponseDown(event, dirLine, collision ? mshr_->getTempData(dirLine->getBaseAddr()) : dirLine->getDataLine()->getData(), false, replay);
             dirLine->setState(IM);
             return DONE;
@@ -1365,8 +1365,8 @@ CacheAction MESIInternalDirectory::handleFetchInv(MemEvent * event, CacheLine * 
                 dirLine->setState(E_Inv);
                 return STALL;
             }
-            if (dirLine->getDataLine() == NULL && !collision) d_->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
-                    name_.c_str(), event->getAddr(), StateString[state]);
+            if (dirLine->getDataLine() == NULL && !collision) debug->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
+                    parent->getName().c_str(), event->getAddr(), StateString[state]);
             sendResponseDown(event, dirLine, collision ? mshr_->getTempData(dirLine->getBaseAddr()) : dirLine->getDataLine()->getData(), false, replay);
             dirLine->setState(I);
             return DONE;
@@ -1383,8 +1383,8 @@ CacheAction MESIInternalDirectory::handleFetchInv(MemEvent * event, CacheLine * 
                 dirLine->setState(M_Inv);
                 return STALL;
             }
-            if (dirLine->getDataLine() == NULL && !collision) d_->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
-                    name_.c_str(), event->getAddr(), StateString[state]);
+            if (dirLine->getDataLine() == NULL && !collision) debug->fatal(CALL_INFO, -1, "Error: (%s) An uncached block must have either owners or sharers. Addr = 0x%" PRIx64 ", detected at FetchInv, State = %s\n", 
+                    parent->getName().c_str(), event->getAddr(), StateString[state]);
             sendResponseDown(event, dirLine, collision ? mshr_->getTempData(dirLine->getBaseAddr()) : dirLine->getDataLine()->getData(), true, replay);
             dirLine->setState(I);
             return DONE;
@@ -1405,8 +1405,8 @@ CacheAction MESIInternalDirectory::handleFetchInv(MemEvent * event, CacheLine * 
             if (collisionEvent->getCmd() == FlushLine || collisionEvent->getCmd() == FlushLineInv) return STALL;
             return BLOCK;
         default:
-            d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received FetchInv but state is unhandled. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
-                        name_.c_str(), event->getAddr(), event->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received FetchInv but state is unhandled. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
+                        parent->getName().c_str(), event->getAddr(), event->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return DONE;
 }
@@ -1501,8 +1501,8 @@ CacheAction MESIInternalDirectory::handleFetchInvX(MemEvent * event, CacheLine *
             if (collisionEvent->getCmd() == FlushLine || collisionEvent->getCmd() == FlushLineInv) return STALL;
             return BLOCK;
         default:
-            d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received FetchInvX but state is unhandled. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
-                        name_.c_str(), event->getAddr(), event->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received FetchInvX but state is unhandled. Addr = 0x%" PRIx64 ", Src = %s, State = %s. Time = %" PRIu64 "ns\n", 
+                        parent->getName().c_str(), event->getAddr(), event->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return DONE;
 }
@@ -1520,7 +1520,7 @@ CacheAction MESIInternalDirectory::handleDataResponse(MemEvent* responseEvent, C
     
     origRequest->setMemFlags(responseEvent->getMemFlags());
 
-    bool shouldRespond = !(origRequest->isPrefetch() && (origRequest->getRqstr() == name_));
+    bool shouldRespond = !(origRequest->isPrefetch() && (origRequest->getRqstr() == parent->getName()));
     bool isCached = dirLine->getDataLine() != NULL;
     uint64_t sendTime = 0;
     switch (state) {
@@ -1552,9 +1552,9 @@ CacheAction MESIInternalDirectory::handleDataResponse(MemEvent* responseEvent, C
             dirLine->setState(M_Inv);
             return STALL;
         default:
-            d_->fatal(CALL_INFO, -1, "%s (dir), Error: Response received but state is not handled. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], 
-                    responseEvent->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s (dir), Error: Response received but state is not handled. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], 
+                    responseEvent->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return DONE; // Eliminate compiler warning
 }
@@ -1590,8 +1590,8 @@ CacheAction MESIInternalDirectory::handleFetchResp(MemEvent * responseEvent, Cac
                 dirLine->setTimestamp(sendTime);
                 if (DEBUG_ALL || DEBUG_ADDR == responseEvent->getBaseAddr()) printData(&responseEvent->getPayload(), false);
             } else {
-                d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received FetchResp in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
-                        name_.c_str(), StateString[state], CommandString[reqEvent->getCmd()], responseEvent->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received FetchResp in state %s but stalled request has command %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n",
+                        parent->getName().c_str(), StateString[state], CommandString[reqEvent->getCmd()], responseEvent->getBaseAddr(), getCurrentSimTimeNano());
             }
             break;
         case SI:
@@ -1609,7 +1609,7 @@ CacheAction MESIInternalDirectory::handleFetchResp(MemEvent * responseEvent, Cac
             if (dirLine->getOwner() == responseEvent->getSrc()) dirLine->clearOwner();
             if (dirLine->isSharer(responseEvent->getSrc())) dirLine->removeSharer(responseEvent->getSrc());
             if (action == DONE) {
-                sendWritebackFromMSHR(((dirLine->getState() == EI) ? PutE : PutM), dirLine, name_, &responseEvent->getPayload());
+                sendWritebackFromMSHR(((dirLine->getState() == EI) ? PutE : PutM), dirLine, parent->getName(), &responseEvent->getPayload());
                 if (expectWritebackAck_) mshr_->insertWriteback(dirLine->getBaseAddr());
                 dirLine->setState(I);
             }
@@ -1668,8 +1668,8 @@ CacheAction MESIInternalDirectory::handleFetchResp(MemEvent * responseEvent, Cac
                     if (responseEvent->getDirty() || state == M_Inv) dirLine->setState(M);
                     else dirLine->setState(E);
                     if (action != DONE) { // Sanity check...
-                        d_->fatal(CALL_INFO, -1, "%s, Error: Received a FetchResp to a FlushLineInv but still waiting on more acks. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s. Time = %" PRIu64 "ns\n",
-                            name_.c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano()); 
+                        debug->fatal(CALL_INFO, -1, "%s, Error: Received a FetchResp to a FlushLineInv but still waiting on more acks. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s. Time = %" PRIu64 "ns\n",
+                            parent->getName().c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str(), getCurrentSimTimeNano()); 
                     }
                     action = handleFlushLineInvRequest(reqEvent, dirLine, NULL, true);
                 } else {
@@ -1690,9 +1690,9 @@ CacheAction MESIInternalDirectory::handleFetchResp(MemEvent * responseEvent, Cac
             break;
 
         default:
-            d_->fatal(CALL_INFO, -1, "%s (dir), Error: Received a FetchResp and state is unhandled. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], 
-                    responseEvent->getSrc().c_str(), StateString[state], ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s (dir), Error: Received a FetchResp and state is unhandled. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], 
+                    responseEvent->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
     return action;
 }
@@ -1706,7 +1706,7 @@ CacheAction MESIInternalDirectory::handleAckInv(MemEvent * ack, CacheLine * dirL
         dirLine->removeSharer(ack->getSrc());
     }
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == ack->getBaseAddr()) d_->debug(_L6_, "Received AckInv for 0x%" PRIx64 ", acks needed: %d\n", ack->getBaseAddr(), mshr_->getAcksNeeded(ack->getBaseAddr()));
+    if (DEBUG_ALL || DEBUG_ADDR == ack->getBaseAddr()) debug->debug(_L6_, "Received AckInv for 0x%" PRIx64 ", acks needed: %d\n", ack->getBaseAddr(), mshr_->getAcksNeeded(ack->getBaseAddr()));
 #endif
     if (mshr_->getAcksNeeded(ack->getBaseAddr()) > 0) mshr_->decrementAcksNeeded(ack->getBaseAddr());
     CacheAction action = (mshr_->getAcksNeeded(ack->getBaseAddr()) == 0) ? DONE : IGNORE;
@@ -1789,9 +1789,9 @@ CacheAction MESIInternalDirectory::handleAckInv(MemEvent * ack, CacheLine * dirL
                 dirLine->setState(I);
             }
         default:
-            d_->fatal(CALL_INFO,-1,"%s (dir), Error: Received AckInv in unhandled state. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), ack->getBaseAddr(), CommandString[ack->getCmd()], ack->getSrc().c_str(), 
-                    StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO,-1,"%s (dir), Error: Received AckInv in unhandled state. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), ack->getBaseAddr(), CommandString[ack->getCmd()], ack->getSrc().c_str(), 
+                    StateString[state], getCurrentSimTimeNano());
 
     }
     return action;    // eliminate compiler warning
@@ -1810,7 +1810,7 @@ void MESIInternalDirectory::invalidateAllSharers(CacheLine * dirLine, string rqs
     uint64_t deliveryTime = (replay) ? baseTime + mshrLatency_ : baseTime + tagLatency_;
     bool invSent = false;
     for (set<std::string>::iterator it = sharers->begin(); it != sharers->end(); it++) {
-        MemEvent * inv = new MemEvent((Component*)owner_, dirLine->getBaseAddr(), dirLine->getBaseAddr(), Inv);
+        MemEvent * inv = new MemEvent(parent, dirLine->getBaseAddr(), dirLine->getBaseAddr(), Inv);
         inv->setDst(*it);
         inv->setRqstr(rqstr);
     
@@ -1820,7 +1820,7 @@ void MESIInternalDirectory::invalidateAllSharers(CacheLine * dirLine, string rqs
         mshr_->incrementAcksNeeded(dirLine->getBaseAddr());
         invSent = true;
 #ifdef __SST_DEBUG_OUTPUT__
-        if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) d_->debug(_L7_,"Sending inv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
+        if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) debug->debug(_L7_,"Sending inv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
                 dirLine->getBaseAddr(), (*it).c_str(), deliveryTime);
 #endif
     }
@@ -1838,9 +1838,9 @@ void MESIInternalDirectory::invalidateAllSharersAndFetch(CacheLine * cacheLine, 
 
     for (set<std::string>::iterator it = sharers->begin(); it != sharers->end(); it++) {
         MemEvent * inv;
-        if (fetched) inv = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), Inv);
+        if (fetched) inv = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), Inv);
         else {
-            inv = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInv);
+            inv = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInv);
             fetched = true;
         }
         inv->setDst(*it);
@@ -1854,7 +1854,7 @@ void MESIInternalDirectory::invalidateAllSharersAndFetch(CacheLine * cacheLine, 
         mshr_->incrementAcksNeeded(cacheLine->getBaseAddr());
 
 #ifdef __SST_DEBUG_OUTPUT__
-        if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L7_,"Sending inv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
+        if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) debug->debug(_L7_,"Sending inv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
                 cacheLine->getBaseAddr(), (*it).c_str(), deliveryTime);
 #endif
     }
@@ -1879,10 +1879,10 @@ bool MESIInternalDirectory::invalidateSharersExceptRequestor(CacheLine * cacheLi
         if (*it == rqstr) continue;
         MemEvent * inv;
         if (needFetch) {
-            inv = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInv);
+            inv = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInv);
             needFetch = false;
         } else {
-            inv = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), Inv);
+            inv = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), Inv);
         }
         inv->setDst(*it);
         inv->setRqstr(origRqstr);
@@ -1896,7 +1896,7 @@ bool MESIInternalDirectory::invalidateSharersExceptRequestor(CacheLine * cacheLi
         mshr_->incrementAcksNeeded(cacheLine->getBaseAddr());
         
 #ifdef __SST_DEBUG_OUTPUT__
-        if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L7_,"Sending inv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
+        if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) debug->debug(_L7_,"Sending inv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
                 cacheLine->getBaseAddr(), (*it).c_str(), deliveryTime);
 #endif
     }
@@ -1906,7 +1906,7 @@ bool MESIInternalDirectory::invalidateSharersExceptRequestor(CacheLine * cacheLi
 
 
 void MESIInternalDirectory::sendFetchInv(CacheLine * cacheLine, string rqstr, bool replay) {
-    MemEvent * fetch = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInv);
+    MemEvent * fetch = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInv);
     if (!(cacheLine->getOwner()).empty()) fetch->setDst(cacheLine->getOwner());
     else fetch->setDst(*(cacheLine->getSharers()->begin()));
     fetch->setRqstr(rqstr);
@@ -1919,14 +1919,14 @@ void MESIInternalDirectory::sendFetchInv(CacheLine * cacheLine, string rqstr, bo
     cacheLine->setTimestamp(deliveryTime);
    
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L7_, "Sending FetchInv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
+    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) debug->debug(_L7_, "Sending FetchInv: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
             cacheLine->getBaseAddr(), cacheLine->getOwner().c_str(), deliveryTime);
 #endif
 }
 
 
 void MESIInternalDirectory::sendFetchInvX(CacheLine * cacheLine, string rqstr, bool replay) {
-    MemEvent * fetch = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInvX);
+    MemEvent * fetch = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), FetchInvX);
     fetch->setDst(cacheLine->getOwner());
     fetch->setRqstr(rqstr);
     fetch->setSize(cacheLine->getSize());
@@ -1938,14 +1938,14 @@ void MESIInternalDirectory::sendFetchInvX(CacheLine * cacheLine, string rqstr, b
     cacheLine->setTimestamp(deliveryTime);
     
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L7_, "Sending FetchInvX: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
+    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) debug->debug(_L7_, "Sending FetchInvX: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
             cacheLine->getBaseAddr(), cacheLine->getOwner().c_str(), deliveryTime);
 #endif
 }
 
 
 void MESIInternalDirectory::sendFetch(CacheLine * cacheLine, string rqstr, bool replay) {
-    MemEvent * fetch = new MemEvent((Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), Fetch);
+    MemEvent * fetch = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), Fetch);
     fetch->setDst(*((cacheLine->getSharers())->begin()));
     fetch->setRqstr(rqstr);
     
@@ -1956,7 +1956,7 @@ void MESIInternalDirectory::sendFetch(CacheLine * cacheLine, string rqstr, bool 
     cacheLine->setTimestamp(deliveryTime);
     
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L7_, "Sending Fetch: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
+    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) debug->debug(_L7_, "Sending Fetch: Addr = 0x%" PRIx64 ", Dst = %s @ cycles = %" PRIu64 ".\n", 
             cacheLine->getBaseAddr(), cacheLine->getOwner().c_str(), deliveryTime);
 #endif
 }
@@ -1982,7 +1982,7 @@ void MESIInternalDirectory::sendResponseDown(MemEvent* event, CacheLine * cacheL
     
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) { 
-        d_->debug(_L3_,"Sending Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str());
+        debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str());
     }
 #endif
 }
@@ -2001,13 +2001,13 @@ void MESIInternalDirectory::sendResponseDownFromMSHR(MemEvent * event, bool dirt
     
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) {
-        d_->debug(_L3_,"Sending Response from MSHR at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str());
+        debug->debug(_L3_,"Sending Response from MSHR at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[responseEvent->getCmd()], responseEvent->getSrc().c_str());
     }
 #endif
 }
 
 void MESIInternalDirectory::sendAckInv(Addr baseAddr, string origRqstr) {
-    MemEvent * ack = new MemEvent((SST::Component*)owner_, baseAddr, baseAddr, AckInv);
+    MemEvent * ack = new MemEvent(parent, baseAddr, baseAddr, AckInv);
     ack->setDst(getDestination(baseAddr));
     ack->setRqstr(origRqstr);
     
@@ -2015,13 +2015,13 @@ void MESIInternalDirectory::sendAckInv(Addr baseAddr, string origRqstr) {
     Response resp = {ack, deliveryTime};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == baseAddr) d_->debug(_L3_,"Sending AckInv at cycle = %" PRIu64 "\n", deliveryTime);
+    if (DEBUG_ALL || DEBUG_ADDR == baseAddr) debug->debug(_L3_,"Sending AckInv at cycle = %" PRIu64 "\n", deliveryTime);
 #endif
 }
 
 
 void MESIInternalDirectory::sendWritebackAck(MemEvent * event) {
-    MemEvent * ack = new MemEvent((SST::Component*)owner_, event->getBaseAddr(), event->getBaseAddr(), AckPut);
+    MemEvent * ack = new MemEvent(parent, event->getBaseAddr(), event->getBaseAddr(), AckPut);
     ack->setDst(event->getSrc());
     ack->setRqstr(event->getSrc());
     ack->setSize(event->getSize());
@@ -2030,12 +2030,12 @@ void MESIInternalDirectory::sendWritebackAck(MemEvent * event) {
     Response resp = {ack, deliveryTime};
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_, "Sending AckPut at cycle = %" PRIu64 "\n", deliveryTime);
+    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_, "Sending AckPut at cycle = %" PRIu64 "\n", deliveryTime);
 #endif
 }
 
 void MESIInternalDirectory::sendWritebackFromCache(Command cmd, CacheLine * dirLine, string rqstr) {
-    MemEvent * writeback = new MemEvent((SST::Component*)owner_, dirLine->getBaseAddr(), dirLine->getBaseAddr(), cmd);
+    MemEvent * writeback = new MemEvent(parent, dirLine->getBaseAddr(), dirLine->getBaseAddr(), cmd);
     writeback->setDst(getDestination(dirLine->getBaseAddr()));
     writeback->setSize(dirLine->getSize());
     if (cmd == PutM || writebackCleanBlocks_) {
@@ -2050,12 +2050,12 @@ void MESIInternalDirectory::sendWritebackFromCache(Command cmd, CacheLine * dirL
     dirLine->setTimestamp(deliveryTime);
     
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) d_->debug(_L3_, "Sending writeback at cycle = %" PRIu64 ", Cmd = %s. From cache\n", deliveryTime, CommandString[cmd]);
+    if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) debug->debug(_L3_, "Sending writeback at cycle = %" PRIu64 ", Cmd = %s. From cache\n", deliveryTime, CommandString[cmd]);
 #endif
 }
 
 void MESIInternalDirectory::sendWritebackFromMSHR(Command cmd, CacheLine * dirLine, string rqstr, vector<uint8_t> * data) {
-    MemEvent * writeback = new MemEvent((SST::Component*)owner_, dirLine->getBaseAddr(), dirLine->getBaseAddr(), cmd);
+    MemEvent * writeback = new MemEvent(parent, dirLine->getBaseAddr(), dirLine->getBaseAddr(), cmd);
     writeback->setDst(getDestination(dirLine->getBaseAddr()));
     writeback->setSize(dirLine->getSize());
     if (cmd == PutM || writebackCleanBlocks_) {
@@ -2067,7 +2067,7 @@ void MESIInternalDirectory::sendWritebackFromMSHR(Command cmd, CacheLine * dirLi
     Response resp = {writeback, deliveryTime};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) d_->debug(_L3_, "Sending writeback at cycle = %" PRIu64 ", Cmd = %s. From MSHR\n", deliveryTime, CommandString[cmd]);
+    if (DEBUG_ALL || DEBUG_ADDR == dirLine->getBaseAddr()) debug->debug(_L3_, "Sending writeback at cycle = %" PRIu64 ", Cmd = %s. From MSHR\n", deliveryTime, CommandString[cmd]);
 #endif
 }
 
@@ -2081,7 +2081,7 @@ void MESIInternalDirectory::sendFlushResponse(MemEvent * requestEvent, bool succ
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 
-        d_->debug(_L3_,"Sending Flush Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[flushResponse->getCmd()], flushResponse->getSrc().c_str());
+        debug->debug(_L3_,"Sending Flush Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[flushResponse->getCmd()], flushResponse->getSrc().c_str());
     }
 #endif
 }
@@ -2090,7 +2090,7 @@ void MESIInternalDirectory::sendFlushResponse(MemEvent * requestEvent, bool succ
  *  Forward a flush line request, with or without data
  */
 void MESIInternalDirectory::forwardFlushLine(MemEvent * origFlush, CacheLine * dirLine, bool dirty, Command cmd) {
-    MemEvent * flush = new MemEvent((SST::Component*)owner_, origFlush->getBaseAddr(), origFlush->getBaseAddr(), cmd);
+    MemEvent * flush = new MemEvent(parent, origFlush->getBaseAddr(), origFlush->getBaseAddr(), cmd);
     flush->setDst(getDestination(origFlush->getBaseAddr()));
     flush->setRqstr(origFlush->getRqstr());
     flush->setSize(lineSize_);
@@ -2110,7 +2110,7 @@ void MESIInternalDirectory::forwardFlushLine(MemEvent * origFlush, CacheLine * d
     if (dirLine) dirLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == origFlush->getBaseAddr()) {
-        d_->debug(_L3_,"Forwarding %s at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", CommandString[cmd], deliveryTime, CommandString[flush->getCmd()], flush->getSrc().c_str());
+        debug->debug(_L3_,"Forwarding %s at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", CommandString[cmd], deliveryTime, CommandString[flush->getCmd()], flush->getSrc().c_str());
     }
 #endif
 }

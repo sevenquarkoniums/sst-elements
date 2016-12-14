@@ -19,6 +19,7 @@
 #include <queue>
 #include <map>
 
+#include <sst_config.h>
 #include <sst/core/event.h>
 #include <sst/core/sst_types.h>
 #include <sst/core/subcomponent.h>

@@ -31,6 +31,12 @@
 #include "dmaEngine.h"
 #include "memHierarchyInterface.h"
 #include "memNIC.h"
+#include "coherenceController.h"
+#include "MESICoherenceController.h"
+#include "MESIInternalDirectory.h"
+#include "IncoherentController.h"
+#include "L1CoherenceController.h"
+#include "L1IncoherentController.h"
 #include "membackend/memBackend.h"
 #include "membackend/simpleMemBackend.h"
 #include "membackend/simpleDRAMBackend.h"
@@ -46,6 +52,7 @@
 #include "networkMemInspector.h"
 #include "memNetBridge.h"
 #include "portManager.h"
+#include "portManagerMulti.h"
 
 #ifdef HAVE_GOBLIN_HMCSIM
 #include "membackend/goblinHMCBackend.h"
@@ -180,6 +187,10 @@ static const ElementInfoStatistic cache_statistics[] = {
     {"FetchInvX_recv",          "Event received: FetchInvX", "count", 2},
     {"Inv_recv",                "Event received: Inv", "count", 2},
     {"NACK_recv",               "Event: NACK received", "count", 2},
+    {NULL, NULL, NULL, 0}
+};
+
+static const ElementInfoStatistic coherence_statistics[] = {
     /* Event sends */
     {"eventSent_GetS",          "Number of GetS requests sent", "events", 2},
     {"eventSent_GetX",          "Number of GetX requests sent", "events", 2},
@@ -353,12 +364,32 @@ static const ElementInfoStatistic cache_statistics[] = {
     {NULL, NULL, NULL, 0}
 };
 
+/* Coherence Controller Subcomponents */
+static SubComponent* create_MESICoherenceController(Component * comp, Params& params) {
+    return new MESIController(comp, params);
+}
+
+static SubComponent* create_MESICacheDirectoryCoherenceController(Component * comp, Params& params) {
+    return new MESIInternalDirectory(comp, params);
+}
+
+static SubComponent* create_IncoherentController(Component * comp, Params& params) {
+    return new IncoherentController(comp, params);
+}
+
+static SubComponent* create_L1CoherenceController(Component * comp, Params& params) {
+    return new L1CoherenceController(comp, params);
+}
+static SubComponent* create_L1IncoherentController(Component * comp, Params& params) {
+    return new L1IncoherentController(comp, params);
+}
+
 static SubComponent* create_PortManager(Component* comp, Params& params){
     return new PortManager(comp, params);
 }
 
 static SubComponent* create_PortManagerMulti(Component* comp, Params& params){
-    return new PortManager(comp, params);
+    return new PortManagerMulti(comp, params);
 }
 
 static Component* create_BroadcastShim(ComponentId_t id, Params& params)
@@ -1093,6 +1124,46 @@ static const ElementInfoSubComponent subcomponents[] = {
         bridge_params,
         NULL,
         "SST::Merlin::Bridge::Translator"
+    },
+    {   "MESICoherenceController",
+        "Coherence controller for MESI or MSI protocol, non-L1",
+        NULL,
+        create_MESICoherenceController,
+        NULL,
+        coherence_statistics,
+        "SST::MemHierarchy::CoherenceController"
+    },
+    {   "MESICacheDirectoryCoherenceController",
+        "Coherence controller for non-inclusive cache with directory, MESI or MSI protocol, non-L1",
+        NULL,
+        create_MESICacheDirectoryCoherenceController,
+        NULL,
+        coherence_statistics,
+        "SST::MemHierarchy::CoherenceController"
+    },
+    {   "IncoherentController",
+        "Incoherent controller, non-L1",
+        NULL,
+        create_IncoherentController,
+        NULL,
+        coherence_statistics,
+        "SST::MemHierarchy::CoherenceController"
+    },
+    {   "L1CoherenceController",
+        "Coherence controller for MESI & MSI protocols, L1 caches",
+        NULL,
+        create_L1CoherenceController,
+        NULL,
+        coherence_statistics,
+        "SST::MemHierarchy::CoherenceController"
+    },
+    {   "L1IncoherentController",
+        "Incoherent controller for MESI & MSI protocols, L1 caches",
+        NULL,
+        create_L1IncoherentController,
+        NULL,
+        coherence_statistics,
+        "SST::MemHierarchy::CoherenceController"
     },
     {NULL, NULL, NULL, NULL, NULL, NULL}
 };

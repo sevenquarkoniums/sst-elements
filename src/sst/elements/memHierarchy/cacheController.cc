@@ -30,7 +30,7 @@
 #include "cacheController.h"
 #include "memEvent.h"
 #include "mshr.h"
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 #include "hash.h"
 
 
@@ -363,7 +363,7 @@ bool Cache::allocateLine(MemEvent * event, Addr baseAddr) {
     CacheLine * replacementLine = cf_.cacheArray_->findReplacementCandidate(baseAddr, true);
 #ifdef __SST_DEBUG_OUTPUT__
     if (replacementLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementLine->getBaseAddr())) {
-        d_->debug(_L6_, "Evicting 0x%" PRIx64 "\n", replacementLine->getBaseAddr());
+        d_->debug(_L3_, "Evicting 0x%" PRIx64 "\n", replacementLine->getBaseAddr());
     }
 #endif
 
@@ -392,7 +392,7 @@ bool Cache::allocateCacheLine(MemEvent* event, Addr baseAddr) {
     
 #ifdef __SST_DEBUG_OUTPUT__
     if (replacementLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementLine->getBaseAddr())) {
-        d_->debug(_L6_, "Evicting 0x%" PRIx64 "\n", replacementLine->getBaseAddr());
+        d_->debug(_L3_, "Evicting 0x%" PRIx64 "\n", replacementLine->getBaseAddr());
     }
 #endif
 
@@ -424,7 +424,7 @@ bool Cache::allocateDirLine(MemEvent* event, Addr baseAddr) {
     
 #ifdef __SST_DEBUG_OUTPUT__
     if (replacementLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementLine->getBaseAddr())) {
-        d_->debug(_L6_, "Evicting 0x%" PRIx64 " from directory.\n", replacementLine->getBaseAddr());
+        d_->debug(_L3_, "Evicting 0x%" PRIx64 " from directory.\n", replacementLine->getBaseAddr());
     }
 #endif
 
@@ -458,7 +458,7 @@ bool Cache::allocateDirCacheLine(MemEvent * event, Addr baseAddr, CacheLine * di
     }
 #ifdef __SST_DEBUG_OUTPUT__
     if (replacementDirLine->valid() && (DEBUG_ALL || DEBUG_ADDR == baseAddr || DEBUG_ADDR == replacementDirLine->getBaseAddr())) {
-        d_->debug(_L6_, "Evicting 0x%" PRIx64 " from cache\n", replacementDirLine->getBaseAddr());
+        d_->debug(_L3_, "Evicting 0x%" PRIx64 " from cache\n", replacementDirLine->getBaseAddr());
     }
 #endif
     if (replacementDirLine->valid()) {  

@@ -17,28 +17,21 @@
 #define L1INCOHERENTCONTROLLER_H
 
 #include <iostream>
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 
 
 namespace SST { namespace MemHierarchy {
 
-class L1IncoherentController : public CoherencyController {
+class L1IncoherentController : public CoherenceController {
 public:
     /** Constructor for L1IncoherentController */
-    L1IncoherentController(const Cache* cache, string ownerName, Output* dbg, CacheListener* listener, 
-            unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, MSHR * mshr,
-            PortManager* portMgr, bool debugAll, Addr debugAddr) :
-                 CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency,
-                         portMgr, listener, mshr, debugAll, debugAddr) {
-        d_->debug(_INFO_,"--------------------------- Initializing [L1Controller] ... \n\n");
+    L1IncoherentController(Component* comp, Params& params) : CoherenceController(comp, params) {
+        debug->debug(_INFO_,"--------------------------- Initializing [L1Controller] ... \n\n");
         
     }
 
     ~L1IncoherentController() {}
     
-    
-    /** Init funciton */
-    void init(const char* name){}
     
     /** Used to determine in advance if an event will be a miss (and which kind of miss)
      * Used for statistics only
@@ -52,7 +45,7 @@ public:
     /** Process new cache request:  GetX, GetS, GetSEx */
     CacheAction handleRequest(MemEvent* event, CacheLine* cacheLine, bool replay);
    
-    /** Process replacement - implemented for compatibility with CoherencyController but L1s do not receive replacements */
+    /** Process replacement - implemented for compatibility with CoherenceController but L1s do not receive replacements */
     CacheAction handleReplacement(MemEvent* event, CacheLine* cacheLine, MemEvent * reqEvent, bool replay);
     
     /** Process Inv */

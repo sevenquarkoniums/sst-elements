@@ -18,30 +18,23 @@
 #define MESIINTERNALDIRCONTROLLER_H
 
 #include <iostream>
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 
 
 namespace SST { namespace MemHierarchy {
 
-class MESIInternalDirectory : public CoherencyController {
+class MESIInternalDirectory : public CoherenceController {
 public:
     /** Constructor for MESIInternalDirectory. */
-    MESIInternalDirectory(const Cache* directory, string ownerName, Output* dbg, CacheListener* listener, 
-            unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, MSHR * mshr, CoherenceProtocol protocol,
-            PortManager * portMgr, bool debugAll, Addr debugAddr) :
-                 CoherencyController(directory, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr, 
-                         listener, mshr, debugAll, debugAddr) {
-        d_->debug(_INFO_,"--------------------------- Initializing [MESI + Directory Controller] ... \n\n");
-        protocol_           = protocol == CoherenceProtocol::MESI;
-
+    MESIInternalDirectory(Component * comp, Params& params) : CoherenceController(comp, params) {
+        
+        debug->debug(_INFO_,"--------------------------- Initializing [MESI + Directory Controller] ... \n\n");
+        
+        protocol_ = params.find<bool>("protocol", 1);
     }
 
     ~MESIInternalDirectory() {}
     
-    
-    /** Init funciton */
-    void init(const char* name){}
- 
 /*----------------------------------------------------------------------------------------------------------------------
  *  Public functions form external interface to the coherence controller
  *---------------------------------------------------------------------------------------------------------------------*/  

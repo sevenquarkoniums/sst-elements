@@ -50,7 +50,8 @@ libmemHierarchy_la_SOURCES = \
 	memNIC.cc \
 	directoryController.h \
 	directoryController.cc \
-	coherenceControllers.h \
+	coherenceController.h \
+	coherenceController.cc \
 	memHierarchyInterface.cc \
 	memHierarchyInterface.h \
 	MESIInternalDirectory.h \

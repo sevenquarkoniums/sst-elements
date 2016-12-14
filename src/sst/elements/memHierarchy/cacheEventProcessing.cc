@@ -21,7 +21,7 @@
 
 #include <sst_config.h>
 #include "cacheController.h"
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 #include "hash.h"
 #include <csignal>
 

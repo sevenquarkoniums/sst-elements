@@ -66,8 +66,8 @@ CacheAction L1IncoherentController::handleEviction(CacheLine* wbCacheLine, strin
         case S_B:
             return STALL;
         default:
-	    d_->fatal(CALL_INFO,-1,"%s, Error: State is invalid during eviction: %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), StateString[state], wbCacheLine->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+	    debug->fatal(CALL_INFO,-1,"%s, Error: State is invalid during eviction: %s. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), StateString[state], wbCacheLine->getBaseAddr(), getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 }
@@ -80,7 +80,7 @@ CacheAction L1IncoherentController::handleEviction(CacheLine* wbCacheLine, strin
  */
 CacheAction L1IncoherentController::handleRequest(MemEvent* event, CacheLine* cacheLine, bool replay){
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr())   d_->debug(_L6_,"State = %s\n", StateString[cacheLine->getState()]);
+    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr())   debug->debug(_L6_,"State = %s\n", StateString[cacheLine->getState()]);
 #endif
 
     Command cmd = event->getCmd();
@@ -92,8 +92,8 @@ CacheAction L1IncoherentController::handleRequest(MemEvent* event, CacheLine* ca
         case GetSEx:
             return handleGetXRequest(event, cacheLine, replay);
         default:
-	    d_->fatal(CALL_INFO,-1,"%s, Error: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
-                    name_.c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), ((Component *)owner_)->getCurrentSimTimeNano());
+	    debug->fatal(CALL_INFO,-1,"%s, Error: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
+                    parent->getName().c_str(), CommandString[cmd], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return STALL;    // Eliminate compiler warning
 }
@@ -109,8 +109,8 @@ CacheAction L1IncoherentController::handleReplacement(MemEvent* event, CacheLine
     } else if (event->getCmd() == FlushLine) {
             return handleFlushLineRequest(event, cacheLine, reqEvent, replay);
     } else {
-        d_->fatal(CALL_INFO,-1,"%s, Error: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
-                name_.c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), ((Component *)owner_)->getCurrentSimTimeNano());
+        debug->fatal(CALL_INFO,-1,"%s, Error: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
+                parent->getName().c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return IGNORE;
 }
@@ -121,8 +121,8 @@ CacheAction L1IncoherentController::handleReplacement(MemEvent* event, CacheLine
  *  Return: whether Inv was successful (true) or we are waiting on further actions (false). L1 returns true (no sharers/owners).
  */
 CacheAction L1IncoherentController::handleInvalidationRequest(MemEvent * event, CacheLine * cacheLine, MemEvent * collisonEvent, bool replay) {
-    d_->fatal(CALL_INFO,-1,"%s, Error: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
-            name_.c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), ((Component *)owner_)->getCurrentSimTimeNano());
+    debug->fatal(CALL_INFO,-1,"%s, Error: Received an unrecognized request: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n", 
+            parent->getName().c_str(), CommandString[event->getCmd()], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     return IGNORE;
 }
 
@@ -143,8 +143,8 @@ CacheAction L1IncoherentController::handleResponse(MemEvent * respEvent, CacheLi
             sendFlushResponse(reqEvent, respEvent->success(), timestamp_, true);
             break;
         default:
-            d_->fatal(CALL_INFO, -1, "%s, Error: Received unrecognized response: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[cmd], respEvent->getBaseAddr(), respEvent->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s, Error: Received unrecognized response: %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[cmd], respEvent->getBaseAddr(), respEvent->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return DONE;
 }
@@ -169,7 +169,7 @@ CacheAction L1IncoherentController::handleGetSRequest(MemEvent* event, CacheLine
     State state = cacheLine->getState();
     vector<uint8_t>* data = cacheLine->getData();
     
-    bool shouldRespond = !(event->isPrefetch() && (event->getRqstr() == name_));
+    bool shouldRespond = !(event->isPrefetch() && (event->getRqstr() == parent->getName()));
     recordStateEventCount(event->getCmd(), state);
     
     uint64_t sendTime = 0;
@@ -189,9 +189,9 @@ CacheAction L1IncoherentController::handleGetSRequest(MemEvent* event, CacheLine
             cacheLine->setTimestamp(sendTime);
             return DONE;
         default:
-            d_->fatal(CALL_INFO,-1,"%s, Error: Handling a GetS request but coherence state is not valid and stable. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(), 
-                    StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO,-1,"%s, Error: Handling a GetS request but coherence state is not valid and stable. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), event->getBaseAddr(), CommandString[event->getCmd()], event->getSrc().c_str(), 
+                    StateString[state], getCurrentSimTimeNano());
 
     }
     return STALL;    // eliminate compiler warning
@@ -226,8 +226,8 @@ CacheAction L1IncoherentController::handleGetXRequest(MemEvent* event, CacheLine
                 /* Handle GetX as unlock (store-unlock) */
                 if (event->queryFlag(MemEvent::F_LOCKED)) {
             	    if (!cacheLine->isLocked()) {  // Sanity check - can't unlock an already unlocked line 
-                        d_->fatal(CALL_INFO, -1, "%s, Error: Unlock request to an already unlocked cache line. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
-                                name_.c_str(), event->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                        debug->fatal(CALL_INFO, -1, "%s, Error: Unlock request to an already unlocked cache line. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
+                                parent->getName().c_str(), event->getBaseAddr(), getCurrentSimTimeNano());
    	            }
                     cacheLine->decLock();
                 }
@@ -243,8 +243,8 @@ CacheAction L1IncoherentController::handleGetXRequest(MemEvent* event, CacheLine
             notifyListenerOfAccess(event, NotifyAccessType::WRITE, NotifyResultType::HIT);
             return DONE;
          default:
-            d_->fatal(CALL_INFO, -1, "%s, Error: Received %s int unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), CommandString[cmd], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), ((Component*)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s, Error: Received %s int unhandled state %s. Addr = 0x%" PRIx64 ", Src = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), CommandString[cmd], StateString[state], event->getBaseAddr(), event->getSrc().c_str(), getCurrentSimTimeNano());
     }
     return STALL; // Eliminate compiler warning
 }
@@ -302,7 +302,7 @@ CacheAction L1IncoherentController::handleFlushLineInvRequest(MemEvent * event, 
 void L1IncoherentController::handleDataResponse(MemEvent* responseEvent, CacheLine* cacheLine, MemEvent* origRequest){
     
     cacheLine->setData(responseEvent->getPayload(), responseEvent);
-    bool shouldRespond = !(origRequest->isPrefetch() && (origRequest->getRqstr() == name_));
+    bool shouldRespond = !(origRequest->isPrefetch() && (origRequest->getRqstr() == parent->getName()));
     
     State state = cacheLine->getState();
     recordStateEventCount(responseEvent->getCmd(), state);
@@ -329,8 +329,8 @@ void L1IncoherentController::handleDataResponse(MemEvent* responseEvent, CacheLi
                 /* Handle GetX as unlock (store-unlock) */
                 if (origRequest->queryFlag(MemEvent::F_LOCKED)) {
             	    if (!cacheLine->isLocked()) {  // Sanity check - can't unlock an already unlocked line 
-                        d_->fatal(CALL_INFO, -1, "%s, Error: Unlock request to an already unlocked cache line. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
-                                name_.c_str(), origRequest->getBaseAddr(), ((Component *)owner_)->getCurrentSimTimeNano());
+                        debug->fatal(CALL_INFO, -1, "%s, Error: Unlock request to an already unlocked cache line. Addr = 0x%" PRIx64 ". Time = %" PRIu64 "ns\n", 
+                                parent->getName().c_str(), origRequest->getBaseAddr(), getCurrentSimTimeNano());
    	            }
                     cacheLine->decLock();
                 }
@@ -345,9 +345,9 @@ void L1IncoherentController::handleDataResponse(MemEvent* responseEvent, CacheLi
             notifyListenerOfAccess(origRequest, NotifyAccessType::WRITE, NotifyResultType::HIT);
             break;
         default:
-            d_->fatal(CALL_INFO, -1, "%s, Error: Response received but state is not handled. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
-                    name_.c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], 
-                    responseEvent->getSrc().c_str(), StateString[state], ((Component *)owner_)->getCurrentSimTimeNano());
+            debug->fatal(CALL_INFO, -1, "%s, Error: Response received but state is not handled. Addr = 0x%" PRIx64 ", Cmd = %s, Src = %s, State = %s. Time = %" PRIu64 "ns\n",
+                    parent->getName().c_str(), responseEvent->getBaseAddr(), CommandString[responseEvent->getCmd()], 
+                    responseEvent->getSrc().c_str(), StateString[state], getCurrentSimTimeNano());
     }
 }
 
@@ -399,7 +399,7 @@ uint64_t L1IncoherentController::sendResponseUp(MemEvent * event, State grantedS
     addToOutgoingQueueUp(resp);
     
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) d_->debug(_L3_,"Sending Response at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Size = %i, Granted State = %s\n", 
+    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Size = %i, Granted State = %s\n", 
             deliveryTime, timestamp_, event->getAddr(), responseEvent->getDst().c_str(), responseEvent->getSize(), StateString[responseEvent->getGrantedState()]);
 #endif
     return deliveryTime;
@@ -411,7 +411,7 @@ uint64_t L1IncoherentController::sendResponseUp(MemEvent * event, State grantedS
  *  Latency: cache access + tag to read data that is being written back and update coherence state
  */
 void L1IncoherentController::sendWriteback(Command cmd, CacheLine* cacheLine, string origRqstr){
-    MemEvent* writeback = new MemEvent((SST::Component*)owner_, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), cmd);
+    MemEvent* writeback = new MemEvent(parent, cacheLine->getBaseAddr(), cacheLine->getBaseAddr(), cmd);
     writeback->setDst(getDestination(cacheLine->getBaseAddr()));
     writeback->setSize(cacheLine->getSize());
     if (cmd == PutM || writebackCleanBlocks_) {
@@ -425,13 +425,13 @@ void L1IncoherentController::sendWriteback(Command cmd, CacheLine* cacheLine, st
     Response resp = {writeback, deliveryTime};
     addToOutgoingQueue(resp);
 #ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) d_->debug(_L3_,"Sending Writeback at cycle = %" PRIu64 ", Cmd = %s\n", deliveryTime, CommandString[cmd]);
+    if (DEBUG_ALL || DEBUG_ADDR == cacheLine->getBaseAddr()) debug->debug(_L3_,"Sending Writeback at cycle = %" PRIu64 ", Cmd = %s\n", deliveryTime, CommandString[cmd]);
 #endif
 }
 
 
 void L1IncoherentController::forwardFlushLine(Addr baseAddr, Command cmd, string origRqstr, CacheLine * cacheLine) {
-    MemEvent * flush = new MemEvent((SST::Component*)owner_, baseAddr, baseAddr, cmd);
+    MemEvent * flush = new MemEvent(parent, baseAddr, baseAddr, cmd);
     flush->setDst(getDestination(baseAddr));
     flush->setRqstr(origRqstr);
     flush->setSize(lineSize_);
@@ -452,7 +452,7 @@ void L1IncoherentController::forwardFlushLine(Addr baseAddr, Command cmd, string
     if (cacheLine != NULL) cacheLine->setTimestamp(deliveryTime-1);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == baseAddr) { 
-        d_->debug(_L3_,"Forwarding Flush at cycle = %" PRIu64 ", Cmd = %s, Src = %s, %s\n", deliveryTime, CommandString[flush->getCmd()], flush->getSrc().c_str(), payload ? "with data" : "without data");
+        debug->debug(_L3_,"Forwarding Flush at cycle = %" PRIu64 ", Cmd = %s, Src = %s, %s\n", deliveryTime, CommandString[flush->getCmd()], flush->getSrc().c_str(), payload ? "with data" : "without data");
     }
 #endif
 }
@@ -469,7 +469,7 @@ void L1IncoherentController::sendFlushResponse(MemEvent * requestEvent, bool suc
     addToOutgoingQueueUp(resp);
 #ifdef __SST_DEBUG_OUTPUT__
     if (DEBUG_ALL || DEBUG_ADDR == requestEvent->getBaseAddr()) { 
-        d_->debug(_L3_,"Sending Flush Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[flushResponse->getCmd()], flushResponse->getSrc().c_str());
+        debug->debug(_L3_,"Sending Flush Response at cycle = %" PRIu64 ", Cmd = %s, Src = %s\n", deliveryTime, CommandString[flushResponse->getCmd()], flushResponse->getSrc().c_str());
     }
 #endif
 }

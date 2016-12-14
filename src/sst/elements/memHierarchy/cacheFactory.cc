@@ -223,8 +223,6 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     string reqWidth             = params.find<std::string>("request_link_width","0B");
     string respWidth            = params.find<std::string>("response_link_width","0B");
     string packetSize           = params.find<std::string>("min_packet_size", "8B");
-    bool snoopL1Invs            = false;
-    if (cf_.L1_) snoopL1Invs    = params.find<bool>("snoop_l1_invalidations", false);
     int64_t dAddr               = params.find<int64_t>("debug_addr",-1);
     if (dAddr != -1) DEBUG_ALL = false;
     else DEBUG_ALL = true;
@@ -379,36 +377,57 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
         statPrefetchHit             = registerStatistic<uint64_t>("Prefetch_hits");
         statPrefetchDrop            = registerStatistic<uint64_t>("Prefetch_drops");
     }
+    
     /* --------------- Coherence Controllers --------------- */
     coherenceMgr_ = NULL;
-    bool inclusive = cf_.type_ == "inclusive";
+    std::string inclusive = (cf_.type_ == "inclusive") ? "true" : "false";
+    std::string protocol = (cf_.protocol_ == CoherenceProtocol::MESI) ? "true" : "false";
     isLL = true;
     lowerIsNoninclusive = false;
+
+    Params coherenceParams;
+    coherenceParams.insert("debug_level", params.find<std::string>("debug_level", "1"));
+    coherenceParams.insert("debug", params.find<std::string>("debug", "0"));
+    coherenceParams.insert("access_latency_cycles", std::to_string(accessLatency_));
+    coherenceParams.insert("mshr_latency_cycles", std::to_string(mshrLatency_));
+    coherenceParams.insert("tag_access_latency_cycles", std::to_string(tagLatency_));
+    coherenceParams.insert("cache_line_size", std::to_string(cf_.lineSize_));
 
     if (!cf_.L1_) {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
             if (cf_.type_ != "noninclusive_with_directory") {
-                coherenceMgr_ = new MESIController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_, 
-                    inclusive, portMgr_, DEBUG_ALL, DEBUG_ADDR);
+                /* Load MESI controller */
+                coherenceParams.insert("protocol", protocol);
+                coherenceParams.insert("inclusive", inclusive);
+                coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.MESICoherenceController", this, coherenceParams));
             } else {
-                coherenceMgr_ = new MESIInternalDirectory(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_,
-                        portMgr_, DEBUG_ALL, DEBUG_ADDR);
+                /* MESI Cache+Directory controller */
+                coherenceParams.insert("protocol", protocol);
+                coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.MESICacheDirectoryCoherenceController", this, coherenceParams));
             }
         } else {
-            coherenceMgr_ = new IncoherentController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_,
-                    inclusive, portMgr_, DEBUG_ALL, DEBUG_ADDR);
+            coherenceParams.insert("inclusive", inclusive);
+            coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.IncoherentController", this, coherenceParams));
         }
     } else {
         if (cf_.protocol_ != CoherenceProtocol::NONE) {
-            coherenceMgr_ = new L1CoherenceController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, cf_.protocol_, 
-                portMgr_, DEBUG_ALL, DEBUG_ADDR, snoopL1Invs);
+            coherenceParams.insert("protocol", protocol);
+            coherenceParams.insert("snoop_l1_invalidations", params.find<std::string>("snoop_l1_invalidations", "false"));
+            coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.L1CoherenceController", this, coherenceParams));
         } else {
-            coherenceMgr_ = new L1IncoherentController(this, this->getName(), d_, listener_, cf_.lineSize_, accessLatency_, tagLatency_, mshrLatency_, mshr_, 
-                    portMgr_, DEBUG_ALL, DEBUG_ADDR);
+            /* Load L1 Incoherent controller */
+            coherenceMgr_ = dynamic_cast<CoherenceController*>( loadSubComponent("memHierarchy.L1IncoherentController", this, coherenceParams));
         }
+
     }
-    
-    /*---------------  Misc --------------- */
+    if (coherenceMgr_ == NULL) {
+        d_->fatal(CALL_INFO, -1, "%s, Failed to load CoherenceController.\n", this->Component::getName().c_str());
+    }
+
+    coherenceMgr_->setPortManager(portMgr_);
+    coherenceMgr_->setMSHR(mshr_);
+    coherenceMgr_->setCacheListener(listener_);
+    coherenceMgr_->setDebug(DEBUG_ALL, DEBUG_ADDR);
 }
 
 

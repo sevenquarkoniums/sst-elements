@@ -26,6 +26,9 @@ using namespace SST;
 using namespace SST::MemHierarchy;
 
 PortManagerMulti::PortManagerMulti(Component * comp, Params &params) : PortManager(comp, params) {
+    
+    output->output("Output initialized...\n");
+    
     /* Get port count */
     uint32_t portCount = params.find<uint32_t>("port_count", 1);
     if (portCount < 1) {
@@ -42,8 +45,8 @@ PortManagerMulti::PortManagerMulti(Component * comp, Params &params) : PortManag
         std::string pType = params.find<std::string>(search + ".type", "rw");
         std::string pWidth = params.find<std::string>(search + ".width", "64B");
 
-        UnitAlgebra pWidth_ua = UnitAlgebra(pWidth);
-        if (pWidth_ua.hasUnits("B")) {
+        UnitAlgebra pWidth_ua(pWidth);
+        if (!pWidth_ua.hasUnits("B")) {
             output->fatal(CALL_INFO, -1, "%s, Invalid param: port.%s.width - must have units of bytes ('B'). Ex: '64B'. You specified '%s'.\n", comp->getName().c_str(), search.c_str(), pWidth.c_str());
         }
         if (pWidth_ua.getRoundedValue() < 1) {

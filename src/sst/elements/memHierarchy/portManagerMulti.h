@@ -103,10 +103,6 @@ private:
     /* Self link for delaying requests on narrow links */
     Link * portDelaySelfLink_;
 
-    /* Outputs */
-    Output * output;
-    Output * debug;
-    
     /* L1 */
     bool L1_;
 

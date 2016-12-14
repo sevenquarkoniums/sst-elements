@@ -13,32 +13,24 @@
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
-#ifndef INCOHERENTCONTROLLERS_H
-#define INCOHERENTCONTROLLERS_H
+#ifndef INCOHERENTCONTROLLER_H
+#define INCOHERENTCONTROLLER_H
 
 #include <iostream>
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 
 
 namespace SST { namespace MemHierarchy {
 
-class IncoherentController : public CoherencyController{
+class IncoherentController : public CoherenceController{
 public:
     /** Constructor for IncoherentController. */
-    IncoherentController(const Cache* cache, string ownerName, Output* dbg, CacheListener* listener, 
-            unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, MSHR * mshr, bool inclusive,
-            PortManager* portMgr, bool debugAll, Addr debugAddr) :
-                 CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr, 
-                         listener, mshr, debugAll, debugAddr) {
-        d_->debug(_INFO_,"--------------------------- Initializing [Incoherent Controller] ... \n\n");
-        inclusive_           = inclusive;
-
+    IncoherentController(SST::Component* comp, Params& params) : CoherenceController (comp, params) {
+        debug->debug(_INFO_,"--------------------------- Initializing [Incoherent Controller] ... \n\n");
+        inclusive_ = params.find<bool>("inclusive", true);
     }
 
     ~IncoherentController() {}
-    
-    /** Init function */
-    void init(const char* name) {}
     
  
 /*----------------------------------------------------------------------------------------------------------------------

@@ -36,7 +36,7 @@
 #include "cacheArray.h"
 #include "mshr.h"
 #include "replacementManager.h"
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 #include "portManager.h"
 #include "util.h"
 #include "cacheListener.h"
@@ -272,7 +272,7 @@ private:
     Output*                 d2_;
     MSHR*                   mshr_;
     MSHR*                   mshrNoncacheable_;
-    CoherencyController*    coherenceMgr_;
+    CoherenceController*    coherenceMgr_;
     uint64_t                accessLatency_;
     uint64_t                tagLatency_;
     uint64_t                mshrLatency_;

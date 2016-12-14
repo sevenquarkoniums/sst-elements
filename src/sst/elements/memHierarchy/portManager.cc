@@ -29,7 +29,6 @@ using namespace SST::MemHierarchy;
 PortManager::PortManager(Component *comp, Params &params) : SubComponent(comp) {
     /* Output stream */
     output = new Output("", 1, 0, SST::Output::STDOUT);
-
     /* Debug stream */
     debug = new Output("", params.find<int>("debug_level", 1), 0, (Output::output_location_t)params.find<int>("debug", SST::Output::NONE));
     int64_t dAddr = params.find<int64_t>("debug_addr", -1);
@@ -67,6 +66,12 @@ PortManager::PortManager(Component *comp, Params &params) : SubComponent(comp) {
                     comp->getName().c_str());
     }
     
+    /* null all the link pointers */
+    bottomNetworkLink_ = nullptr;
+    topNetworkLink_ = nullptr;
+    linkCPUBus_ = nullptr;
+    linkMemBus_ = nullptr;
+
     /* Configure the links */
     if (directConnectCPUSide && directConnectMemSide) {
         debug->debug(_INFO_,"Configuring cache with a direct link above and one or more direct links below.\n");

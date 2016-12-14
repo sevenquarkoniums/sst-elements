@@ -17,31 +17,23 @@
 #define MESICOHERENCECONTROLLER_H
 
 #include <iostream>
-#include "coherenceControllers.h"
+#include "coherenceController.h"
 
 
 namespace SST { namespace MemHierarchy {
 
-class MESIController : public CoherencyController{
+class MESIController : public CoherenceController{
 public:
     /** Constructor for MESIController. Note that MESIController handles both MESI & MSI protocols */
-    MESIController(const Cache* cache, string ownerName, Output* dbg, CacheListener* listener, 
-            unsigned int lineSize, uint64_t accessLatency, uint64_t tagLatency, uint64_t mshrLatency, MSHR * mshr, CoherenceProtocol protocol, bool inclusive,
-            PortManager * portMgr, bool debugAll, Addr debugAddr) :
-                 CoherencyController(cache, dbg, ownerName, lineSize, accessLatency, tagLatency, mshrLatency, portMgr,
-                         listener, mshr, debugAll, debugAddr) {
-        d_->debug(_INFO_,"--------------------------- Initializing [MESI Controller] ... \n\n");
-        protocol_           = protocol == CoherenceProtocol::MESI;         // 1 for MESI, 0 for MSI
-        inclusive_          = inclusive;
+    MESIController(SST::Component* comp, Params& params) : CoherenceController(comp, params) {
+        debug->debug(_INFO_,"--------------------------- Initializing [MESI Controller] ... \n\n");
         
+        protocol_ = params.find<bool>("protocol", 1);
+        inclusive_ = params.find<bool>("inclusive", true);
     }
 
     ~MESIController() {}
     
-    /** Init funciton */
-    void init(const char* name){}
-
-
 /*----------------------------------------------------------------------------------------------------------------------
  *  Public functions form external interface to the coherence controller
  *---------------------------------------------------------------------------------------------------------------------*/  
