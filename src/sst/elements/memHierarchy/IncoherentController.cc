@@ -242,7 +242,7 @@ CacheAction IncoherentController::handleGetXRequest(MemEvent* event, CacheLine* 
     switch (state) {
         case I:
             forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), 0, NULL);
-            notifyListenerOfAccess(event, NotifyAccessType::WROTE, NotifyResultType::MISS);
+            notifyListenerOfAccess(event, NotifyAccessType::WRITE, NotifyResultType::MISS);
             cacheLine->setState(IM);
 #ifdef __SST_DEBUG_OUTPUT__
             debug->debug(_L6_,"Forwarding GetX, new state IM\n");
@@ -540,4 +540,55 @@ void IncoherentController::recordStateEventCount(Command cmd, State state) {
         default:
             break;
     }
+}
+
+
+void IncoherentController::recordEventSentDown(Command cmd) {
+    switch(cmd) {
+        case GetS:
+            stat_eventSent_GetS->addData(1);
+            break;
+        case GetX:
+            stat_eventSent_GetX->addData(1);
+            break;
+        case GetSEx:
+            stat_eventSent_GetSEx->addData(1);
+            break;
+        case PutE:
+            stat_eventSent_PutE->addData(1);
+            break;
+        case PutM:
+            stat_eventSent_PutM->addData(1);
+            break;
+        case FlushLine:
+            stat_eventSent_FlushLine->addData(1);
+            break;
+        case FlushLineInv:
+            stat_eventSent_FlushLineInv->addData(1);
+            break;
+        case NACK:
+            stat_eventSent_NACK_down->addData(1);
+            break;
+        default:
+            break;
+    }
+}
+
+void IncoherentController::recordEventSentUp(Command cmd) {
+    switch (cmd) {
+        case GetSResp:
+            stat_eventSent_GetSResp->addData(1);
+            break;
+        case GetXResp:
+            stat_eventSent_GetXResp->addData(1);
+            break;
+        case FlushLineResp:
+            stat_eventSent_FlushLineResp->addData(1);
+            break;
+        case NACK:
+            stat_eventSent_NACK_up->addData(1);
+            break;
+        default:
+            break;
+    }   
 }

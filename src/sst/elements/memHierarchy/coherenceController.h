@@ -105,6 +105,8 @@ public:
 
     /***** Statistics *****/
     virtual void recordLatency(Command cmd, State state, uint64_t latency);
+    virtual void recordEventSentUp(Command cmd) =0;
+    virtual void recordEventSentDown(Command cmd) =0;
     
 protected:
     struct Response {
@@ -159,8 +161,6 @@ protected:
     /* Statistics */
     virtual void recordStateEventCount(Command cmd, State state);
     virtual void recordEvictionState(State state);
-    virtual void recordEventSentUp(Command cmd);
-    virtual void recordEventSentDown(Command cmd);
 
     /* Listener callback */
     virtual void notifyListenerOfAccess(MemEvent * event, NotifyAccessType accessT, NotifyResultType resultT);
@@ -175,132 +175,6 @@ protected:
     Statistic<uint64_t>* stat_evict_IB;
     Statistic<uint64_t>* stat_evict_SB;
 
-    // State/event combinations for Stats API TODO is there a cleaner way to enumerate & declare these?
-    Statistic<uint64_t>* stat_stateEvent_GetS_I;
-    Statistic<uint64_t>* stat_stateEvent_GetS_S;
-    Statistic<uint64_t>* stat_stateEvent_GetS_E;
-    Statistic<uint64_t>* stat_stateEvent_GetS_M;
-    Statistic<uint64_t>* stat_stateEvent_GetX_I;
-    Statistic<uint64_t>* stat_stateEvent_GetX_S;
-    Statistic<uint64_t>* stat_stateEvent_GetX_E;
-    Statistic<uint64_t>* stat_stateEvent_GetX_M;
-    Statistic<uint64_t>* stat_stateEvent_GetSEx_I;
-    Statistic<uint64_t>* stat_stateEvent_GetSEx_S;
-    Statistic<uint64_t>* stat_stateEvent_GetSEx_E;
-    Statistic<uint64_t>* stat_stateEvent_GetSEx_M;
-    Statistic<uint64_t>* stat_stateEvent_GetSResp_IS;
-    Statistic<uint64_t>* stat_stateEvent_GetSResp_IM;
-    Statistic<uint64_t>* stat_stateEvent_GetSResp_SM;
-    Statistic<uint64_t>* stat_stateEvent_GetSResp_SMInv;
-    Statistic<uint64_t>* stat_stateEvent_GetXResp_IM;
-    Statistic<uint64_t>* stat_stateEvent_GetXResp_SM;
-    Statistic<uint64_t>* stat_stateEvent_GetXResp_SMInv;
-    Statistic<uint64_t>* stat_stateEvent_PutS_I;
-    Statistic<uint64_t>* stat_stateEvent_PutS_S;
-    Statistic<uint64_t>* stat_stateEvent_PutS_E;
-    Statistic<uint64_t>* stat_stateEvent_PutS_M;
-    Statistic<uint64_t>* stat_stateEvent_PutS_SD;
-    Statistic<uint64_t>* stat_stateEvent_PutS_ED;
-    Statistic<uint64_t>* stat_stateEvent_PutS_MD;
-    Statistic<uint64_t>* stat_stateEvent_PutS_SMD;
-    Statistic<uint64_t>* stat_stateEvent_PutS_SInv;
-    Statistic<uint64_t>* stat_stateEvent_PutS_SI;
-    Statistic<uint64_t>* stat_stateEvent_PutS_EI;
-    Statistic<uint64_t>* stat_stateEvent_PutS_MI;
-    Statistic<uint64_t>* stat_stateEvent_PutS_EInvX;
-    Statistic<uint64_t>* stat_stateEvent_PutS_EInv;
-    Statistic<uint64_t>* stat_stateEvent_PutS_MInv;
-    Statistic<uint64_t>* stat_stateEvent_PutS_SMInv;
-    Statistic<uint64_t>* stat_stateEvent_PutE_I;
-    Statistic<uint64_t>* stat_stateEvent_PutE_E;
-    Statistic<uint64_t>* stat_stateEvent_PutE_M;
-    Statistic<uint64_t>* stat_stateEvent_PutE_EI;
-    Statistic<uint64_t>* stat_stateEvent_PutE_MI;
-    Statistic<uint64_t>* stat_stateEvent_PutE_EInv;
-    Statistic<uint64_t>* stat_stateEvent_PutE_EInvX;
-    Statistic<uint64_t>* stat_stateEvent_PutE_MInv;
-    Statistic<uint64_t>* stat_stateEvent_PutE_MInvX;
-    Statistic<uint64_t>* stat_stateEvent_PutM_I;
-    Statistic<uint64_t>* stat_stateEvent_PutM_E;
-    Statistic<uint64_t>* stat_stateEvent_PutM_M;
-    Statistic<uint64_t>* stat_stateEvent_PutM_EI;
-    Statistic<uint64_t>* stat_stateEvent_PutM_MI;
-    Statistic<uint64_t>* stat_stateEvent_PutM_EInv;
-    Statistic<uint64_t>* stat_stateEvent_PutM_EInvX;
-    Statistic<uint64_t>* stat_stateEvent_PutM_MInv;
-    Statistic<uint64_t>* stat_stateEvent_PutM_MInvX;
-    Statistic<uint64_t>* stat_stateEvent_Inv_I;
-    Statistic<uint64_t>* stat_stateEvent_Inv_IS;
-    Statistic<uint64_t>* stat_stateEvent_Inv_IM;
-    Statistic<uint64_t>* stat_stateEvent_Inv_S;
-    Statistic<uint64_t>* stat_stateEvent_Inv_SM;
-    Statistic<uint64_t>* stat_stateEvent_Inv_SInv;
-    Statistic<uint64_t>* stat_stateEvent_Inv_SI;
-    Statistic<uint64_t>* stat_stateEvent_Inv_SMInv;
-    Statistic<uint64_t>* stat_stateEvent_Inv_SD;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_I;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_IS;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_IM;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_SM;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_S;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_E;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_M;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_EI;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_MI;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_EInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_EInvX;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_MInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_MInvX;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_SD;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_ED;
-    Statistic<uint64_t>* stat_stateEvent_FetchInv_MD;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_I;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_IS;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_IM;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_SM;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_E;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_M;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_EI;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_MI;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_EInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_EInvX;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_MInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_MInvX;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_ED;
-    Statistic<uint64_t>* stat_stateEvent_FetchInvX_MD;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_I;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_IS;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_IM;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_SM;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_S;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_SInv;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_SI;
-    Statistic<uint64_t>* stat_stateEvent_Fetch_SD;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_I;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_SI;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_EI;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_MI;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_SInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_SMInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_EInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_MInv;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_SD;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_SMD;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_ED;
-    Statistic<uint64_t>* stat_stateEvent_FetchResp_MD;
-    Statistic<uint64_t>* stat_stateEvent_FetchXResp_I;
-    Statistic<uint64_t>* stat_stateEvent_FetchXResp_EInvX;
-    Statistic<uint64_t>* stat_stateEvent_FetchXResp_MInvX;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_I;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_SInv;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_EInv;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_MInv;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_SMInv;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_SI;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_EI;
-    Statistic<uint64_t>* stat_stateEvent_AckInv_MI;
-    Statistic<uint64_t>* stat_stateEvent_AckPut_I;
-
     Statistic<uint64_t>* stat_latency_GetS_IS;
     Statistic<uint64_t>* stat_latency_GetS_M;
     Statistic<uint64_t>* stat_latency_GetX_IM;
@@ -309,27 +183,6 @@ protected:
     Statistic<uint64_t>* stat_latency_GetSEx_IM;
     Statistic<uint64_t>* stat_latency_GetSEx_SM;
     Statistic<uint64_t>* stat_latency_GetSEx_M;     
-   
-    // Count events sent
-    Statistic<uint64_t>* stat_eventSent_GetS;       // All
-    Statistic<uint64_t>* stat_eventSent_GetX;       // All
-    Statistic<uint64_t>* stat_eventSent_GetSEx;     // All
-    Statistic<uint64_t>* stat_eventSent_GetSResp;   // All
-    Statistic<uint64_t>* stat_eventSent_GetXResp;   // All
-    Statistic<uint64_t>* stat_eventSent_PutS;       // All
-    Statistic<uint64_t>* stat_eventSent_PutE;       // All
-    Statistic<uint64_t>* stat_eventSent_PutM;       // All
-    Statistic<uint64_t>* stat_eventSent_Inv;        // Non-L1
-    Statistic<uint64_t>* stat_eventSent_Fetch;      
-    Statistic<uint64_t>* stat_eventSent_FetchInv;   // Non-L1
-    Statistic<uint64_t>* stat_eventSent_FetchInvX;  // Non-L1
-    Statistic<uint64_t>* stat_eventSent_FetchResp;  // All
-    Statistic<uint64_t>* stat_eventSent_FetchXResp; // All
-    Statistic<uint64_t>* stat_eventSent_AckInv;     // All
-    Statistic<uint64_t>* stat_eventSent_AckPut;     // Non-L1
-    Statistic<uint64_t>* stat_eventSent_NACK_up;    // Non-L1
-    Statistic<uint64_t>* stat_eventSent_NACK_down;  // All
-
 };
 
 }}

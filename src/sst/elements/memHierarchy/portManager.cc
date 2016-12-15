@@ -20,6 +20,7 @@
 #include "sst/elements/memHierarchy/util.h"
 #include "portManager.h"
 #include "cacheController.h"
+#include "coherenceController.h"
 #include "memNIC.h"
 #include <sst/core/interfaces/stringEvent.h>
 
@@ -114,7 +115,8 @@ bool PortManager::clock() {
 
 void PortManager::sendTowardsMem(MemEvent * event) {
     debug->debug(_L8_, "Port sendTowardsMem Event: Addr = 0x%" PRIx64 ", Cmd = %s.\n", event->getBaseAddr(), CommandString[event->getCmd()]);
-    if(bottomNetworkLink_) {
+    coherenceMgr_->recordEventSentDown(event->getCmd()); 
+    if (bottomNetworkLink_) {
         event->setDst(bottomNetworkLink_->findTargetDestination(event->getBaseAddr()));
         bottomNetworkLink_->send(event);
     } else {
@@ -124,6 +126,7 @@ void PortManager::sendTowardsMem(MemEvent * event) {
 
 void PortManager::sendTowardsCPU(MemEvent * event) {
     debug->debug(_L8_, "Port sendTowardsCPU Event: Addr = 0x%" PRIx64 ", Cmd = %s.\n", event->getBaseAddr(), CommandString[event->getCmd()]);
+    coherenceMgr_->recordEventSentUp(event->getCmd()); 
     if (topNetworkLink_) {
         topNetworkLink_->send(event);
     } else {

@@ -873,7 +873,7 @@ void L1CoherenceController::recordStateEventCount(Command cmd, State state) {
             else if (state == IS) stat_stateEvent_Inv_IS->addData(1);
             else if (state == IM) stat_stateEvent_Inv_IM->addData(1);
             else if (state == SM) stat_stateEvent_Inv_SM->addData(1);
-            else if (state == S_B) stat_stateEvent_Inv_IS->addData(1);
+            else if (state == S_B) stat_stateEvent_Inv_SB->addData(1);
             else if (state == I_B) stat_stateEvent_Inv_IB->addData(1);
             break;
         case FetchInvX:
@@ -902,8 +902,8 @@ void L1CoherenceController::recordStateEventCount(Command cmd, State state) {
             else if (state == IS) stat_stateEvent_FetchInv_IS->addData(1);
             else if (state == IM) stat_stateEvent_FetchInv_IM->addData(1);
             else if (state == SM) stat_stateEvent_FetchInv_SM->addData(1);
-            else if (state == SB) stat_stateEvent_FetchInv_SB->addData(1);
-            else if (state == IB) stat_stateEvent_FetchInv_IB->addData(1);
+            else if (state == S_B) stat_stateEvent_FetchInv_SB->addData(1);
+            else if (state == I_B) stat_stateEvent_FetchInv_IB->addData(1);
             break;
         case AckPut:
             if (state == I) stat_stateEvent_AckPut_I->addData(1);
@@ -938,5 +938,70 @@ void L1CoherenceController::recordStateEventCount(Command cmd, State state) {
         default:
             break;
 
+    }
+}
+
+
+/* Record how many times each event type was sent down */
+void L1CoherenceController::recordEventSentDown(Command cmd) {
+    switch (cmd) {
+        case GetS:
+            stat_eventSent_GetS->addData(1);
+            break;
+        case GetX:
+            stat_eventSent_GetX->addData(1);
+            break;
+        case GetSEx:
+            stat_eventSent_GetSEx->addData(1);
+            break;
+        case PutS:
+            stat_eventSent_PutS->addData(1);
+            break;
+        case PutE:
+            stat_eventSent_PutE->addData(1);
+            break;
+        case PutM:
+            stat_eventSent_PutM->addData(1);
+            break;
+        case NACK:
+            stat_eventSent_NACK_down->addData(1);
+            break;
+        case FlushLine:
+            stat_eventSent_FlushLine->addData(1);
+            break;
+        case FlushLineInv:
+            stat_eventSent_FlushLineInv->addData(1);
+            break;
+        case FetchResp:
+            stat_eventSent_FetchResp->addData(1);
+            break;
+        case FetchXResp:
+            stat_eventSent_FetchXResp->addData(1);
+            break;
+        case AckInv:
+            stat_eventSent_AckInv->addData(1);
+            break;
+        default:
+            break;
+    }
+}
+
+
+void L1CoherenceController::recordEventSentUp(Command cmd) {
+    switch (cmd) {
+        case GetSResp:
+            stat_eventSent_GetSResp->addData(1);
+            break;
+        case GetXResp:
+            stat_eventSent_GetXResp->addData(1);
+            break;
+        case FlushLineResp:
+            stat_eventSent_FlushLineResp->addData(1);
+            break;
+        case Inv:
+            stat_eventSent_Inv->addData(1);
+            break;
+        default:
+            break;
     }
 }

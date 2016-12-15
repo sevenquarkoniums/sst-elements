@@ -36,6 +36,8 @@
 namespace SST { namespace MemHierarchy {
 using namespace std;
 
+class CoherenceController;
+
 class PortManager : public SST::SubComponent {
 
 public:
@@ -60,6 +62,7 @@ public:
     /* Send functions */
     void sendTowardsMem(MemEvent * event);
     void sendTowardsCPU(MemEvent * event);
+    void setCoherenceManager(CoherenceController * ctrl) { coherenceMgr_ = ctrl; }
 
 protected:
     /* Outputs */
@@ -75,6 +78,10 @@ protected:
     MemNIC * topNetworkLink_;
     Link * linkCPUBus_;
     Link * linkMemBus_;
+
+    /* Pointer to coherence manager for statistics recording */
+    // Statistics are a property of coherence protocol
+    CoherenceController * coherenceMgr_;
 
 private:
     /* Link configuration functions */

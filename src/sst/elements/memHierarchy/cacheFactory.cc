@@ -428,6 +428,8 @@ Cache::Cache(ComponentId_t id, Params &params, CacheConfig config) : Component(i
     coherenceMgr_->setMSHR(mshr_);
     coherenceMgr_->setCacheListener(listener_);
     coherenceMgr_->setDebug(DEBUG_ALL, DEBUG_ADDR);
+    
+    portMgr_->setCoherenceManager(coherenceMgr_);
 }
 
 

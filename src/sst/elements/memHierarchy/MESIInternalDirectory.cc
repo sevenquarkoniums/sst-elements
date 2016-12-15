@@ -2195,7 +2195,7 @@ void MESIInternalDirectory::recordEvictionState(State state) {
 }
 
 
-void MESIController::recordStateEventCount(Command cmd, State state) {
+void MESIInternalDirectory::recordStateEventCount(Command cmd, State state) {
     switch (cmd) {
         case GetS:
             if (state == I) stat_stateEvent_GetS_I->addData(1);
@@ -2208,14 +2208,14 @@ void MESIController::recordStateEventCount(Command cmd, State state) {
             else if (state == S) stat_stateEvent_GetX_S->addData(1);
             else if (state == E) stat_stateEvent_GetX_E->addData(1);
             else if (state == M) stat_stateEvent_GetX_M->addData(1);
-            else if (state == SM) stat_stateEvent_GetX_SM->addData(1);
+            //else if (state == SM) Only because we retried too early
             break;
         case GetSEx:
             if (state == I) stat_stateEvent_GetSEx_I->addData(1);
             else if (state == S) stat_stateEvent_GetSEx_S->addData(1);
             else if (state == E) stat_stateEvent_GetSEx_E->addData(1);
             else if (state == M) stat_stateEvent_GetSEx_M->addData(1);
-            else if (state == SM) stat_stateEvent_GetSEx_SM->addData(1);
+            //else if (state == SM) Only because we retried too early
             break;
         case GetSResp:
             if (state == IS) stat_stateEvent_GetSResp_IS->addData(1);
@@ -2223,7 +2223,7 @@ void MESIController::recordStateEventCount(Command cmd, State state) {
         case GetXResp:
             if (state == IM) stat_stateEvent_GetXResp_IM->addData(1);
             else if (state == SM) stat_stateEvent_GetXResp_SM->addData(1);
-            else if (state == SM_Inv) stat_stateEvent_GetXResp_SM_Inv->addData(1);
+            else if (state == SM_Inv) stat_stateEvent_GetXResp_SMInv->addData(1);
             break;
         case PutS:
             if (state == I) stat_stateEvent_PutS_I->addData(1);
@@ -2249,7 +2249,7 @@ void MESIController::recordStateEventCount(Command cmd, State state) {
         case PutE:
             if (state == I) stat_stateEvent_PutE_I->addData(1);
             else if (state == E) stat_stateEvent_PutE_E->addData(1);
-            else if (state == M) stat_stateEvent_PutE_E->addData(1);
+            else if (state == M) stat_stateEvent_PutE_M->addData(1);
             else if (state == M_Inv) stat_stateEvent_PutE_MInv->addData(1);
             else if (state == M_InvX) stat_stateEvent_PutE_MInvX->addData(1);
             else if (state == E_Inv) stat_stateEvent_PutE_EInv->addData(1);
@@ -2417,6 +2417,84 @@ void MESIController::recordStateEventCount(Command cmd, State state) {
             if (state == I) stat_stateEvent_FlushLineResp_I->addData(1);
             else if (state == I_B) stat_stateEvent_FlushLineResp_IB->addData(1);
             else if (state == S_B) stat_stateEvent_FlushLineResp_SB->addData(1);
+            break;
+        default:
+            break;
+    }
+}
+
+void MESIInternalDirectory::recordEventSentDown(Command cmd) {
+    switch(cmd) {
+        case GetS:
+            stat_eventSent_GetS->addData(1);
+            break;
+        case GetX:
+            stat_eventSent_GetX->addData(1);
+            break;
+        case GetSEx:
+            stat_eventSent_GetSEx->addData(1);
+            break;
+        case PutS:
+            stat_eventSent_PutS->addData(1);
+            break;
+        case PutE:
+            stat_eventSent_PutE->addData(1);
+            break;
+        case PutM:
+            stat_eventSent_PutM->addData(1);
+            break;
+        case FlushLine:
+            stat_eventSent_FlushLine->addData(1);
+            break;
+        case FlushLineInv:
+            stat_eventSent_FlushLineInv->addData(1);
+            break;
+        case FetchResp:
+            stat_eventSent_FetchResp->addData(1);
+            break;
+        case FetchXResp:
+            stat_eventSent_FetchXResp->addData(1);
+            break;
+        case AckInv:
+            stat_eventSent_AckInv->addData(1);
+            break;
+        case NACK:
+            stat_eventSent_NACK_down->addData(1);
+            break;
+        default:
+            break;
+    }
+}
+
+
+void MESIInternalDirectory::recordEventSentUp(Command cmd) {
+    switch (cmd) {
+        case GetSResp:
+            stat_eventSent_GetSResp->addData(1);
+            break;
+        case GetXResp:
+            stat_eventSent_GetXResp->addData(1);
+            break;
+        case FlushLineResp:
+            stat_eventSent_FlushLineResp->addData(1);
+            break;
+        case Inv:
+            stat_eventSent_Inv->addData(1);
+            break;
+        case Fetch:
+            stat_eventSent_Fetch->addData(1);
+            break;
+        case FetchInv:
+            stat_eventSent_FetchInv->addData(1);
+            break;
+        case FetchInvX:
+            stat_eventSent_FetchInvX->addData(1);
+            break;
+        case AckPut:
+            stat_eventSent_AckPut->addData(1);
+            break;
+        case NACK:
+            stat_eventSent_NACK_up->addData(1);
             break;
         default:
             break;

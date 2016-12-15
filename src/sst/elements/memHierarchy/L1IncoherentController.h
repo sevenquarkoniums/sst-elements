@@ -38,7 +38,7 @@ public:
         stat_stateEvent_GetSEx_I = registerStatistic<uint64_t>("stateEvent_GetSEx_I");
         stat_stateEvent_GetSEx_E = registerStatistic<uint64_t>("stateEvent_GetSEx_E");
         stat_stateEvent_GetSEx_M = registerStatistic<uint64_t>("stateEvent_GetSEx_M");
-        stat_stateEvent_GetSResp_IS = registerStatistic<uint64_t>("stateEvent_GetXResp_IS");
+        stat_stateEvent_GetSResp_IS = registerStatistic<uint64_t>("stateEvent_GetSResp_IS");
         stat_stateEvent_GetXResp_IM = registerStatistic<uint64_t>("stateEvent_GetXResp_IM");
         stat_stateEvent_FlushLine_I = registerStatistic<uint64_t>("stateEvent_FlushLine_I");
         stat_stateEvent_FlushLine_E = registerStatistic<uint64_t>("stateEvent_FlushLine_E");
@@ -57,6 +57,18 @@ public:
         stat_stateEvent_FlushLineResp_I = registerStatistic<uint64_t>("stateEvent_FlushLineResp_I");
         stat_stateEvent_FlushLineResp_IB = registerStatistic<uint64_t>("stateEvent_FlushLineResp_IB");
         stat_stateEvent_FlushLineResp_SB = registerStatistic<uint64_t>("stateEvent_FlushLineResp_SB");
+        stat_eventSent_GetS =           registerStatistic<uint64_t>("eventSent_GetS");
+        stat_eventSent_GetX =           registerStatistic<uint64_t>("eventSent_GetX");
+        stat_eventSent_GetSEx =         registerStatistic<uint64_t>("eventSent_GetSEx");
+        stat_eventSent_PutE =           registerStatistic<uint64_t>("eventSent_PutE");
+        stat_eventSent_PutM =           registerStatistic<uint64_t>("eventSent_PutM");
+        stat_eventSent_NACK_down =      registerStatistic<uint64_t>("eventSent_NACK_down");
+        stat_eventSent_FlushLine =      registerStatistic<uint64_t>("eventSent_FlushLine");
+        stat_eventSent_FlushLineInv =   registerStatistic<uint64_t>("eventSent_FlushLineInv");
+        stat_eventSent_GetSResp =       registerStatistic<uint64_t>("eventSent_GetSResp");
+        stat_eventSent_GetXResp =       registerStatistic<uint64_t>("eventSent_GetXResp");
+        stat_eventSent_FlushLineResp =  registerStatistic<uint64_t>("eventSent_FlushLineResp");
+        stat_eventSent_NACK_up =        registerStatistic<uint64_t>("eventSent_NACK_up");
     }
 
     ~L1IncoherentController() {}
@@ -124,7 +136,19 @@ private:
     Statistic<uint64_t>* stat_stateEvent_FlushLineResp_I;
     Statistic<uint64_t>* stat_stateEvent_FlushLineResp_IB;
     Statistic<uint64_t>* stat_stateEvent_FlushLineResp_SB;
-    
+    Statistic<uint64_t>* stat_eventSent_GetS;
+    Statistic<uint64_t>* stat_eventSent_GetX;
+    Statistic<uint64_t>* stat_eventSent_GetSEx;
+    Statistic<uint64_t>* stat_eventSent_PutE;
+    Statistic<uint64_t>* stat_eventSent_PutM;
+    Statistic<uint64_t>* stat_eventSent_NACK_down;
+    Statistic<uint64_t>* stat_eventSent_FlushLine;
+    Statistic<uint64_t>* stat_eventSent_FlushLineInv;
+    Statistic<uint64_t>* stat_eventSent_GetSResp;
+    Statistic<uint64_t>* stat_eventSent_GetXResp;
+    Statistic<uint64_t>* stat_eventSent_FlushLineResp;
+    Statistic<uint64_t>* stat_eventSent_NACK_up;
+
     /* Private event handlers */
     /** Handle GetX request. Request upgrade if needed */
     CacheAction handleGetXRequest(MemEvent* event, CacheLine* cacheLine, bool replay);
@@ -151,6 +175,11 @@ private:
     
     /** Send response to a flush request */
     void sendFlushResponse(MemEvent * requestEvent, bool success, uint64_t baseTime, bool replay);
+
+    /* Statistics recording */
+    void recordStateEventCount(Command cmd, State state);
+    void recordEventSentDown(Command cmd);
+    void recordEventSentUp(Command cmd);
 };
 
 
