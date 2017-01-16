@@ -52,19 +52,8 @@ class FireflyNetworkEvent : public Event {
 
     void bufPop( size_t len ) {
 
-        static int pass=0;
-        static int ct36=0, last36=0;
-        if ( len == 36 ) {
-            ct36++;
-            last36=pass;
-        }
-        pass++;
         offset += len;
-        if ( offset > bufLen ) {
-        std::cerr << len << " " << offset << " " << bufLen << " PASS " << pass << std::endl;
-        std::cerr <<  "Examine len=36 case: ct =  " << ct36 << ", previous " << last36 << std::endl;     
-   assert( offset <= bufLen );
-        }
+        assert( offset <= bufLen );
     }
     
     void bufAppend( const void* ptr , size_t len ) {

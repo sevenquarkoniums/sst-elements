@@ -71,12 +71,6 @@ size_t lenxx;
 
         Callback callback;
         if ( findRecv( ev->src, hdr ) ) {
-Jcnt1++;
-lenxx = sizeof(MsgHdr);
-if ( lenxx > Maxlen1 ) {
-   std::cerr << " John1 " << Jcnt1 << ", len = " << lenxx << std::endl;
-   Maxlen1 = lenxx;
-}
             ev->bufPop( sizeof(MsgHdr) );
 
             callback = std::bind( &Nic::RecvMachine::state_move_0, this, ev );
@@ -354,8 +348,6 @@ static void print( Output& dbg, char* buf, int len )
 size_t Nic::RecvMachine::copyIn( Output& dbg, Nic::Entry& entry,
                         FireflyNetworkEvent& event, std::vector<DmaVec>& vec )
 {
-static size_t Maxlen=0;
-static int Jcnt=0;
     dbg.verbose(CALL_INFO,3,NIC_DBG_RECV_MACHINE,"Recv: "
 				"ioVec.size()=%lu\n", entry.ioVec().size() );
 
@@ -367,11 +359,7 @@ static int Jcnt=0;
             size_t toLen = entry.ioVec()[entry.currentVec].len - entry.currentPos;
             size_t fromLen = event.bufSize();
             size_t len = toLen < fromLen ? toLen : fromLen;
-Jcnt++;
-if ( len > Maxlen ) {
-   std::cerr << " John " << Jcnt << ", len = " << len << std::endl;
-   Maxlen = len;
-}
+
 			DmaVec tmp;
 			tmp.length = len;
 			tmp.addr = entry.ioVec()[entry.currentVec].addr.simVAddr +
