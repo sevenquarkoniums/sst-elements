@@ -16,7 +16,7 @@
  * For detail, see DragonflyHybridAllocator.cc.
  */
 
-// file Factory.h Factory.cc should be modified.
+// file Factory.h Factory.cc Makefile.am should be modified.
 
 #ifndef SST_SCHEDULER_DRAGONFLYHYBRIDALLOCATOR_H__
 #define SST_SCHEDULER_DRAGONFLYHYBRIDALLOCATOR_H__
@@ -40,6 +40,13 @@ namespace SST {
                 std::string getSetupInfo(bool comment) const;
 
                 AllocInfo* allocate(Job* j);
+
+            private:
+
+                bool notAllocated(int nodeID);
+
+                //keep track of occupied nodes in one process of allocation.
+                std::set<int> occupiedNodes;
         };
 
     }

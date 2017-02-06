@@ -9,9 +9,8 @@
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
-//to do list of Yijia:
+//To Do list of Yijia:
 //check coding standards.
-//change the tabs into spaces.
 //combine steps for optimization.
 //check the labeling of the nodes in dragonfly.
 //find out the best allocation for entire machine case.
@@ -46,7 +45,6 @@ std::string DragonflyHybridAllocator::getSetupInfo(bool comment) const
 #include <iostream>
 using namespace std;
 
-
 AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
 {
     if (canAllocate(*j)) {
@@ -60,7 +58,8 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                 int thisRouterFreeNode = 0;
                 for (int localNodeID = 0; localNodeID < dMach.nodesPerRouter; localNodeID++) {
                     int nodeID = routerID * dMach.nodesPerRouter + localNodeID;
-                    if (dMach.isFree(nodeID)) {
+                    if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
+                        //caution: isFree() will update only after one job is fully allocated.
                         ++thisRouterFreeNode;
                     }
                 }
@@ -74,8 +73,9 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
             if (jobSize <= BestRouterFreeNodes) {
                 int nodeID = BestRouter * dMach.nodesPerRouter;
                 for (int i = 0; i < jobSize; i++) {
-                    if (dMach.isFree(nodeID)) {
+                    if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
                         ai->nodeIndices[i] = nodeID;
+                        occupiedNodes.insert(nodeID);
                         ++nodeID;
                     }
                     else {
@@ -111,8 +111,9 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                     int localNodeID = 0;
                     while (true) {
                         int nodeID = routerID * dMach.nodesPerRouter + localNodeID;
-                        if (dMach.isFree(nodeID)) {
+                        if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
                             ai->nodeIndices[i] = nodeID;
+                            occupiedNodes.insert(nodeID);
                             //change router.
                             if (routerID < (BestGroup + 1) * dMach.routersPerGroup - 1) {
                                 ++routerID;
@@ -146,14 +147,15 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
             }
         }
         //job cannot fit in one group, so
-        //it will spread across the machine.
+        //it will simply spread across the machine.
         int groupID = 0;
         for (int i = 0; i < jobSize; i++) {
             int localNodeID = 0;
             while (true) {
                 int nodeID = groupID * nodesPerGroup + localNodeID;
-                if (dMach.isFree(nodeID)) {
+                if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
                     ai->nodeIndices[i] = nodeID;
+                    occupiedNodes.insert(nodeID);
                     //change group.
                     if (groupID < dMach.numGroups - 1) {
                         ++groupID;
@@ -185,4 +187,10 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
         return ai;
     }
     return NULL;
+}
+
+//returns true if this nodeID is not occupied.
+bool DragonflyHybridAllocator::notAllocated(int nodeID)
+{
+    return occupiedNodes.find(nodeID) == occupiedNodes.end();
 }
