@@ -6,6 +6,8 @@ Description : This sub-python script parses the snapshot xml file that is dumped
 It then creates a runscript for ember simulation and runs the script. 
 Created specifically for detailed simulation of network congestion together with scheduling & application task mapping algorithms.
 
+whether running ember or not is modified in this file.
+
 ### TODO ###
 1 can add link_arrangement parameter.
 2 can use the routing parameter instead of the manual-modify version.
@@ -312,7 +314,7 @@ def main():
     
     TimeObject, JobObjects = parse_xml (options = options)
     execcommand = generate_ember_files (TimeObject, JobObjects, options)
-    run_ember (execcommand)
+    #run_ember (execcommand)
 
 if __name__ == '__main__':
     main()

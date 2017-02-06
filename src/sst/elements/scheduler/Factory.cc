@@ -37,6 +37,7 @@
 #include "allocators/OctetMBSAllocator.h"
 #include "allocators/BestFitAllocator.h"
 #include "allocators/ConstraintAllocator.h"
+#include "allocators/DragonflyHybridAllocator.h"
 #include "allocators/EnergyAllocator.h"
 #include "allocators/FirstFitAllocator.h"
 #include "allocators/GranularMBSAllocator.h"
@@ -104,6 +105,7 @@ const Factory::allocTableEntry Factory::allocTable[] = {
     {NEARESTAMAP, "nearestamap"},
     {SPECTRALAMAP, "spectralamap"},
     {SIMPLESPREAD, "simplespread"},
+    {DRAGONFLYHYBRID, "dragonflyhybrid"},
 };
 
 const Factory::taskMapTableEntry Factory::taskMapTable[] = {
@@ -484,6 +486,16 @@ Allocator* Factory::getAllocator(SST::Params& params, Machine* m, schedComponent
                     schedout.fatal(CALL_INFO, 1, "Simple Spread allocator requires dragonfly machine\n");
                 } else {
                     return new SimpleSpreadAllocator(*dMachine);
+                }
+                break;
+            }
+        case DRAGONFLYHYBRID:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Hybrid allocator requires dragonfly machine\n");
+                } else {
+                    return new DragonflyHybridAllocator(*dMachine);
                 }
                 break;
             }

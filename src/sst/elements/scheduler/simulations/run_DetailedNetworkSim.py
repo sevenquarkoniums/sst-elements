@@ -28,7 +28,7 @@ def clear_files(options):
 
 def delete_logs(options):
 
-    cmd = "rm %s/motif*.log" %(options.output_folder)
+    cmd = "rm -f %s/motif*.log" %(options.output_folder)
     run(cmd)
 
 def run_sim (options):
