@@ -49,6 +49,8 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
 {
     if (canAllocate(*j)) {
         AllocInfo* ai = new AllocInfo(j, dMach);
+        //This set keeps track of allocated nodes in the current allocation.
+        std::set<int> occupiedNodes;
         const int jobSize = ai->getNodesNeeded();
         if (jobSize <= dMach.nodesPerRouter) {
             //find the router with the most free nodes.
@@ -58,7 +60,7 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                 int thisRouterFreeNode = 0;
                 for (int localNodeID = 0; localNodeID < dMach.nodesPerRouter; localNodeID++) {
                     int nodeID = routerID * dMach.nodesPerRouter + localNodeID;
-                    if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
+                    if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                         //caution: isFree() will update only after one job is fully allocated.
                         ++thisRouterFreeNode;
                     }
@@ -73,15 +75,17 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
             if (jobSize <= BestRouterFreeNodes) {
                 int nodeID = BestRouter * dMach.nodesPerRouter;
                 for (int i = 0; i < jobSize; i++) {
-                    if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
+                    if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                         ai->nodeIndices[i] = nodeID;
                         occupiedNodes.insert(nodeID);
+                        std::cout << nodeID << " ";
                         ++nodeID;
                     }
                     else {
                         ++nodeID;
                     }
                 }
+                std::cout << endl;
                 return ai;
             }
         }
@@ -94,7 +98,7 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                 int thisGroupFreeNode = 0;
                 for (int localNodeID = 0; localNodeID < nodesPerGroup; localNodeID++) {
                     int nodeID = GroupID * nodesPerGroup + localNodeID;
-                    if (dMach.isFree(nodeID)) {
+                    if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                         ++thisGroupFreeNode;
                     }
                 }
@@ -111,9 +115,10 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                     int localNodeID = 0;
                     while (true) {
                         int nodeID = routerID * dMach.nodesPerRouter + localNodeID;
-                        if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
+                        if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                             ai->nodeIndices[i] = nodeID;
                             occupiedNodes.insert(nodeID);
+                            std::cout << nodeID << " ";
                             //change router.
                             if (routerID < (BestGroup + 1) * dMach.routersPerGroup - 1) {
                                 ++routerID;
@@ -143,6 +148,7 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                         }
                     }
                 }
+                std::cout << endl;
                 return ai;
             }
         }
@@ -153,9 +159,10 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
             int localNodeID = 0;
             while (true) {
                 int nodeID = groupID * nodesPerGroup + localNodeID;
-                if ( dMach.isFree(nodeID) && notAllocated(nodeID) ) {
+                if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                     ai->nodeIndices[i] = nodeID;
                     occupiedNodes.insert(nodeID);
+                    std::cout << nodeID << " ";
                     //change group.
                     if (groupID < dMach.numGroups - 1) {
                         ++groupID;
@@ -184,13 +191,9 @@ AllocInfo* DragonflyHybridAllocator::allocate(Job* j)
                 }
             }
         }
+        std::cout << endl;
         return ai;
     }
     return NULL;
 }
 
-//returns true if this nodeID is not occupied.
-bool DragonflyHybridAllocator::notAllocated(int nodeID)
-{
-    return occupiedNodes.find(nodeID) == occupiedNodes.end();
-}

@@ -1,2 +1,2 @@
 #!/bin/bash
-find . -name loadfile -exec echo {} \; -exec cat {} \;
+find . -name "*.sim.time" -exec echo {} \; -exec cat {} \;

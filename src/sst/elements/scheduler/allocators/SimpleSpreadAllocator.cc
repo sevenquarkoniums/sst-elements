@@ -51,7 +51,9 @@ AllocInfo* SimpleSpreadAllocator::allocate(Job* j)
             } while(!dMach.isFree(lastNode));
             int rId = dMach.routerOf(lastNode);
             ai->nodeIndices[i] = lastNode;
+            std::cout << lastNode << " ";//for debug.
         }
+        std::cout << endl;
         return ai;
     }
     return NULL;

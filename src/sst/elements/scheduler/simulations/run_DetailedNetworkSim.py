@@ -3,6 +3,8 @@
 Date        : 08/04/2015  
 Created by  : Fulya Kaplan
 Description : This main python script runs scheduler and ember simulations successively until completion.
+
+ember part is avoided in this file.
 '''
 
 import os, sys
@@ -36,6 +38,7 @@ def run_sim (options):
     # Run scheduler for the first time and create the first snapshot
     init_cmd  = "sst %s" %(options.schedPythonFile)
     run(init_cmd)
+    sys.exit(0)
 
     # Do the following in a loop until the simulation is completed
     # Parse scheduler snapshot->run ember->Parse ember output->run scheduler->...

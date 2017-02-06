@@ -76,7 +76,7 @@ if mode == 'hybrid':
     iterNotRandom = 16
     allocStrategy = ['simple', 'spread', 'hybrid', 'random']#['simple', 'spread', 'hybrid', 'hybridRandom', 'random']
 elif mode == 'baseline':# single job in an empty machine.
-    sNum = 2 
+    sNum = 8 
     sSize = int(sys.argv[1])
     lNum = 0
     lSize = 2

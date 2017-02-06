@@ -41,12 +41,6 @@ namespace SST {
 
                 AllocInfo* allocate(Job* j);
 
-            private:
-
-                bool notAllocated(int nodeID);
-
-                //keep track of occupied nodes in one process of allocation.
-                std::set<int> occupiedNodes;
         };
 
     }
