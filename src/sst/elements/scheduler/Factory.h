@@ -87,7 +87,7 @@ namespace SST {
                     NEARESTAMAP = 16,
                     SPECTRALAMAP = 17,
                     SIMPLESPREAD = 18,
-                    DRAGONFLYHYBRID = 19,
+                    DFLYHYBRID = 19,
                 };
                 enum TaskMapperType{
                     SIMPLEMAP = 0,

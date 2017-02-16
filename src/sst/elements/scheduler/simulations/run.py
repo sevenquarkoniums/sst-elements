@@ -52,7 +52,7 @@ groupNum = 17
 nodeOneRouter = 2
 nodeInGroup = RouterInGroup * nodeOneRouter
 
-mode = 'baseline'# singleType, hybrid, baseline.
+mode = 'randomSized'# singleType, hybrid, baseline, randomSized.
 applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
 mappers = ['libtopomap'] # simple.
 alphaRange = [4.0]#[0.5, 1.0, 2.0, 4.0]
@@ -87,12 +87,18 @@ elif mode == 'baseline':# single job in an empty machine.
     phasefileNames = [hString + '.phase']
     
     allocStrategy = ['spread']#['simple', 'spread', 'random']#['simple', 'simpleHeadEnd', 'spreadLimited']
-    iterRandom = 1 
+    iterRandom = 1
     iterNotRandom = 1
 elif mode == 'singleType':
     simfileName = 'alltoall_LN8.sim'
     graphfileNames = 'alltoall_LN8.mtx'
     phasefileNames = 'alltoall.phase'
+elif mode == 'randomSized':
+    sizeMax = 24 # possible largest number of nodes of one job.
+    jobNum = 128
+    hString = 'randomSized_%d_%d' % (jobNum, sizeMax)
+    simfileName = '%s.sim' % hString
+    phasefileName = '%s.phase' % hString 
 
 #------------------------------------
 # should use more decent code in the future.
@@ -100,8 +106,8 @@ ifChangeSnap = False# use True when shape/routing/useMyLoadfile changed.
 routing = 'adaptive_local'#routing: minimal, valiant, adaptive_local.
 
 if mode == 'hybrid' or mode == 'baseline':
-    useMyLoadfile = False
-elif mode == 'singleType':
+    useMyLoadfile = True
+elif mode == 'singleType' or mode == 'randomSized':
     useMyLoadfile = False
 
 #====================================
@@ -132,9 +138,9 @@ def main():
     
     if ifChangeSnap == True:
         changeSnapSched(routing, shape, str(useMyLoadfile))
-    generateSimfile(simfileName, graphfileNames, phasefileNames)
 
     if mode == 'baseline':
+        generateSimfile(simfileName, graphfileNames , phasefileNames, 1000)
         generatePhasefile(graphfileNames[0], phasefileNames[0])
         generateGraphfile(graphfileNames[0], sSize)
         generatePyfile(simfileName, 'libtopomap', hString)
@@ -151,14 +157,13 @@ def main():
                             options.application = applications[0]
                             options.mapper = 'libtopomap'
                             options.iteration = iteration
-                            submit_job(options, strategy, parser, messageIter, messageSize)
-        
+                            submit_job(options, strategy, messageIter, messageSize)
     elif mode == 'hybrid':
+        generateSimfile(simfileName, graphfileNames , phasefileNames, 1000)
         for iphase, phase in enumerate(phasefileNames):
             generatePhasefile(graphfileNames[iphase], phasefileNames[iphase])
         generateGraphfile(graphfileNames[0], sSize)
         generateGraphfile(graphfileNames[1], lSize)
-        
         for application in applications:
             for mapper in mappers:
                 generatePyfile(simfileName, mapper, hString)
@@ -175,7 +180,16 @@ def main():
                                     options.application = application
                                     options.mapper = mapper
                                     options.iteration = iteration
-                                    submit_job(options, strategy, parser, messageIter, messageSize)
+                                    submit_job(options, strategy, messageIter, messageSize)
+    elif mode == 'randomSized':
+        generateSimfile(simfileName, 'empty' , phasefileName, 1000, sizeMax, jobNum)
+        generatePhasefile('empty', phasefileName)
+        for application in applications:
+            for mapper in mappers:
+                generatePyfile(simfileName, mapper, hString)
+                options.application = application
+                options.mapper = mapper
+                submit_job(options)
 
 def generateMyLoadfile(options, graphName, strategy, messageIter, messageSize):
     '''
@@ -432,7 +446,7 @@ def generateMyLoadfile(options, graphName, strategy, messageIter, messageSize):
     fo.close()
 
 
-def generatePyfile(simfileName, mapper, hString):
+def generatePyfile(simfileName, mapper, pyName):
     '''
     use a python file template to generate the required file.
     '''
@@ -461,7 +475,7 @@ def generatePyfile(simfileName, mapper, hString):
                 row = row.replace(currentMapper, 'random')
         wlines.append(row)
 #    pyfileName = '%s_%s_%s_N%d.py' % (allocator, mapper, application, N)# simple_libtopomap_alltoall_N8.py
-    pyfileName = '%s.py' % (hString)
+    pyfileName = '%s.py' % (pyName)
     pyo = open(pyfileName,'w')
     pyo.write('\n'.join(wlines))
     pyo.close()
@@ -495,33 +509,50 @@ def changeSnapSched(expectR, expectShape, expectMyload):
     snap.close()
     print('snapshotParser_sched.py modified.')
     
-def generateSimfile(simName, graphName, phaseName):
+def generateSimfile(simName, graphName, phaseName, runtime, sizeMax=1, jobNum=1):
     '''
     generate the .sim files in the jobtrace_file folder.
+    mode: 'randomSized' generate a list of random sized (node number) jobs.
+        'twoSized' generate small/large jobs.
+    runtime is an int in microseconds.
+    In 'twoSized' mode, graphName and phaseName are lists.
+    In 'randomSized' mode, graphName is ignored. phaseName and phasefile content are the same for all jobs.
+    sizeMax is the max node number possible.
+    jobNum is the number of jobs.
     '''
+    import random
     tempname = 'jobtrace_files/' + simName
     simfile = open(tempname, 'w')
-    # for small job.
-    score = int(sSize * nodeInGroup * 2) # small_core.
-    if useUnstrMotif == True:
-        simLine = '0 %d 550000 -1 comm\tgraph_files/%s\tphase phase_files/%s\n' % (score, graphName[0], phaseName[0])
-    else:
-        simLine = '0 %d 550000 -1 phase phase_files/%s\n' % (score, phaseName[0])
-    for iN in range(sNum):
-        simfile.write(simLine)
-    
-    # for large jobs.
-    lcore = int(lSize * nodeInGroup * 2)
-    if lNum != 0:
+    if mode == 'baseline' or mode == 'hybrid':
+        # for small job.
+        score = int(sSize * nodeInGroup * 2) # small_core.
         if useUnstrMotif == True:
-            simLine = '0 %d 550000 -1 comm\tgraph_files/%s\tphase phase_files/%s\n' % (lcore, graphName[1], phaseName[1])
+            simLine = '0 %d %d -1 comm\tgraph_files/%s\tphase phase_files/%s\n' % (score, runtime, graphName[0], phaseName[0])
         else:
-            simLine = '0 %d 550000 -1 phase phase_files/%s\n' % (lcore, phaseName[1])
-    for iN in range(lNum):
-        simfile.write(simLine)
+            simLine = '0 %d %d -1 phase phase_files/%s\n' % (score, runtime, phaseName[0])
+        for iN in range(sNum):
+            simfile.write(simLine)
+        # for large jobs.
+        lcore = int(lSize * nodeInGroup * 2)
+        if lNum != 0:
+            if useUnstrMotif == True:
+                simLine = '0 %d %d -1 comm\tgraph_files/%s\tphase phase_files/%s\n' % (lcore, runtime, graphName[1], phaseName[1])
+            else:
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (lcore, runtime, phaseName[1])
+        for iN in range(lNum):
+            simfile.write(simLine)
+    elif mode == 'randomSized':
+        for ijob in range(jobNum):
+            node = random.randint(1, sizeMax)
+            print('jobSize: %d nodes' % node)
+            core = node * 2
+            arriveTime = ijob * 100 # can be changed into Poisson process.
+            simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
+            simfile.write(simLine)
+
     simfile.close()
     print('%s generated.' % simName)
-    
+
 def generatePhasefile(graphName, phaseName):
     tempname = 'phase_files/' + phaseName
     phasefile = open(tempname, 'w')
@@ -573,12 +604,17 @@ def run(cmd):
     #print(cmd)
     os.system(cmd)
 
-def submit_job(options, strategy, parser, messageIter, messageSize):
-    exp_name = "alpha%s_%s_%s_%s_%d_%d_iter%s" %(options.alpha, options.application, strategy, options.mapper, messageIter, messageSize, options.iteration)
-    if routing == 'adaptive_local':
-        options.exp_folder = '%s_%s' % (hString, 'adaptive')# overide the -e parameter.
-    else:
-        options.exp_folder = '%s_%s' % (hString, routing)# overide the -e parameter.
+def submit_job(options, strategy='empty', messageIter=1, messageSize=1):
+    if mode == 'hybrid' or mode == 'baseline':
+        exp_name = 'alpha%s_%s_%s_%s_%d_%d_iter%s' %(options.alpha, options.application, strategy, options.mapper, messageIter, messageSize, options.iteration)
+        if routing == 'adaptive_local':
+            options.exp_folder = '%s_%s' % (hString, 'adaptive')# overide the -e parameter.
+        else:
+            options.exp_folder = '%s_%s' % (hString, routing)# overide the -e parameter.
+    elif mode == 'randomSized':
+        exp_name = '%s_%s' %(options.application, options.mapper)
+        options.exp_folder = '%s' % (hString)# overide the -e parameter.
+
     options.outdir = "%s/%s/%s" %(options.main_sim_path, options.exp_folder, exp_name)
     #os.environ['SIMOUTPUT'] = folder
     execcommand  = "hostname\n"
@@ -586,7 +622,10 @@ def submit_job(options, strategy, parser, messageIter, messageSize):
     execcommand += 'module load anaconda\n'# this line is necessary to prevent library problem.
     execcommand += "source %s\n" %(options.env_script)
     execcommand += "export SIMOUTPUT=%s/\n" %(options.outdir)
-    execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --alpha %s --schedPy ./%s.py\n" %(options.alpha, hString)
+    if mode == 'hybrid' or mode == 'baseline':
+        execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --alpha %s --schedPy ./%s.py\n" %(options.alpha, hString)
+    elif mode == 'randomSized':
+        execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --schedPy ./%s.py\n" %(hString)
     execcommand += "date\n"
 
     shfile = "%s/%s.sh" %(options.outdir, exp_name)
@@ -621,7 +660,7 @@ def submit_job(options, strategy, parser, messageIter, messageSize):
         if qsub == False:
             cmd = "%s" % (shfile)
         else:
-            cmd1 = 'qsub -q %s ' % (queue) if setQueue else 'qsub '              
+            cmd1 = 'qsub -q %s ' % (queue) if setQueue else 'qsub '
             cmd2 = '-l mem_free=%dG,s_vmem=%dG,h_vmem=%dG ' % (memory, memory, memory) if useMoreMemory else ''
             cmd = cmd1 + cmd2 + '-cwd -o %s -j y %s' % (outfile, shfile)
 #            cmd = ("qsub -q %s -l mem_free=%dG,s_vmem=%dG,h_vmem=%dG -cwd -S /bin/bash -o %s -j y %s" % (queue, memory, memory, memory, outfile, shfile)) 

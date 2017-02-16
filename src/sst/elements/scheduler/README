@@ -248,6 +248,20 @@ processors returned.
 nearestamap - Described below among task mappers
 spectralamap - Described below among task mappers
 
+Other allocators starting with dfly are designed specifically for dragonfly
+machine.
+
+Tips for adding new allocators:
+Add YourAllocator.h and YourAllocator.cc in allocators/. For dragonfly machine
+allocations, DflyHybridAllocator.cc can be used as a template.
+In Factory.h, add 1 line inside enum AllocatorType, and change 2 numbers in 
+corresponding places.
+In Factory.cc, add 1 line for #include. Add 1 line inside 
+const Factory::allocTableEntry. Add 1 case inside 
+Allocator* Factory::getAllocator.
+In Makefile.am, add 2 lines under libscheduler_la_SOURCES.
+
+
         Task Mappers: 
 
 - simple: maps the tasks to the allocated nodes with given order
