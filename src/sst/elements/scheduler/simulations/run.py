@@ -95,7 +95,7 @@ elif mode == 'singleType':
     phasefileNames = 'alltoall.phase'
 elif mode == 'randomSized':
     sizeMax = 24 # possible largest number of nodes of one job.
-    jobNum = 128
+    jobNum = 32
     hString = 'randomSized_%d_%d' % (jobNum, sizeMax)
     simfileName = '%s.sim' % hString
     phasefileName = '%s.phase' % hString 
