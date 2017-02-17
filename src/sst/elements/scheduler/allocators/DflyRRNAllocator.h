@@ -9,8 +9,8 @@
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
-#ifndef SST_SCHEDULER_DFLYRDRALLOCATOR_H__
-#define SST_SCHEDULER_DFLYRDRALLOCATOR_H__
+#ifndef SST_SCHEDULER_DFLYRRNALLOCATOR_H__
+#define SST_SCHEDULER_DFLYRRNALLOCATOR_H__
 
 #include "sst/core/rng/sstrng.h"
 
@@ -23,12 +23,12 @@ namespace SST {
         class DragonFlyMachine;
         class Job;
 
-        class DflyRDRAllocator : public DragonflyAllocator {
+        class DflyRRNAllocator : public DragonflyAllocator {
             public:
 
-                DflyRDRAllocator(const DragonflyMachine & mach);
+                DflyRRNAllocator(const DragonflyMachine & mach);
 
-                ~DflyRDRAllocator();
+                ~DflyRRNAllocator();
 
                 std::string getSetupInfo(bool comment) const;
 
@@ -40,4 +40,4 @@ namespace SST {
 
     }
 }
-#endif // SST_SCHEDULER_DFLYRDRALLOCATOR_H__
+#endif // SST_SCHEDULER_DFLYRRNALLOCATOR_H__

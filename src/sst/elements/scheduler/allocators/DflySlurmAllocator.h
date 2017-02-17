@@ -9,10 +9,8 @@
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
-#ifndef SST_SCHEDULER_DFLYRDRALLOCATOR_H__
-#define SST_SCHEDULER_DFLYRDRALLOCATOR_H__
-
-#include "sst/core/rng/sstrng.h"
+#ifndef SST_SCHEDULER_DFLYSLURMALLOCATOR_H__
+#define SST_SCHEDULER_DFLYSLURMALLOCATOR_H__
 
 #include "DragonflyAllocator.h"
 
@@ -23,21 +21,19 @@ namespace SST {
         class DragonFlyMachine;
         class Job;
 
-        class DflyRDRAllocator : public DragonflyAllocator {
+        class DflySlurmAllocator : public DragonflyAllocator {
             public:
 
-                DflyRDRAllocator(const DragonflyMachine & mach);
+                DflySlurmAllocator(const DragonflyMachine & mach);
 
-                ~DflyRDRAllocator();
+                ~DflySlurmAllocator() { }
 
                 std::string getSetupInfo(bool comment) const;
 
                 AllocInfo* allocate(Job* j);
 
-            private:
-                SST::RNG::SSTRandom* rng; //random number generator
         };
 
     }
 }
-#endif // SST_SCHEDULER_DFLYRDRALLOCATOR_H__
+#endif // SST_SCHEDULER_DFLYSLURMALLOCATOR_H__

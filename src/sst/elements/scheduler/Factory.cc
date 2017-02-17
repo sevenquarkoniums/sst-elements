@@ -38,7 +38,11 @@
 #include "allocators/BestFitAllocator.h"
 #include "allocators/ConstraintAllocator.h"
 #include "allocators/DflyHybridAllocator.h"
+#include "allocators/DflyRDGAllocator.h"
 #include "allocators/DflyRDRAllocator.h"
+#include "allocators/DflyRRNAllocator.h"
+#include "allocators/DflyRRRAllocator.h"
+#include "allocators/DflySlurmAllocator.h"
 #include "allocators/EnergyAllocator.h"
 #include "allocators/FirstFitAllocator.h"
 #include "allocators/GranularMBSAllocator.h"
@@ -108,6 +112,10 @@ const Factory::allocTableEntry Factory::allocTable[] = {
     {SIMPLESPREAD, "simplespread"},
     {DFLYHYBRID, "dflyhybrid"},
     {DFLYRDR, "dflyrdr"},
+    {DFLYRDG, "dflyrdg"},
+    {DFLYRRN, "dflyrrn"},
+    {DFLYRRR, "dflyrrr"},
+    {DFLYSLURM, "dflyslurm"},
 };
 
 const Factory::taskMapTableEntry Factory::taskMapTable[] = {
@@ -508,6 +516,46 @@ Allocator* Factory::getAllocator(SST::Params& params, Machine* m, schedComponent
                     schedout.fatal(CALL_INFO, 1, "Dragonfly Random Router allocator requires dragonfly machine\n");
                 } else {
                     return new DflyRDRAllocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYRDG:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Random Group allocator requires dragonfly machine\n");
+                } else {
+                    return new DflyRDGAllocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYRRN:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Round Robin Nodes allocator requires dragonfly machine\n");
+                } else {
+                    return new DflyRRNAllocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYRRR:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Round Robin Routers allocator requires dragonfly machine\n");
+                } else {
+                    return new DflyRRRAllocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYSLURM:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Slurm allocator requires dragonfly machine\n");
+                } else {
+                    return new DflySlurmAllocator(*dMachine);
                 }
                 break;
             }
