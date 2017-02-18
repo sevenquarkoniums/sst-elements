@@ -10,7 +10,6 @@
 // distribution.
 
 #include "sst_config.h"
-#include "sst/core/rng/mersenne.h"
 
 #include "DflyRRRAllocator.h"
 
@@ -23,12 +22,10 @@ using namespace SST::Scheduler;
 DflyRRRAllocator::DflyRRRAllocator(const DragonflyMachine & mach)
   : DragonflyAllocator(mach)
 {
-    rng = new SST::RNG::MersenneRNG();
 }
 
 DflyRRRAllocator::~DflyRRRAllocator()
 {
-    delete rng;
 }
 
 std::string DflyRRRAllocator::getSetupInfo(bool comment) const
@@ -39,7 +36,7 @@ std::string DflyRRRAllocator::getSetupInfo(bool comment) const
     } else {
         com = "";
     }
-    return com + "Dragonfly Round Robin Router Allocator";
+    return com + "Dragonfly Round Robin Routers Allocator";
 }
 
 #include <iostream>
@@ -52,27 +49,56 @@ AllocInfo* DflyRRRAllocator::allocate(Job* j)
         //This set keeps track of allocated nodes in the current allocation.
         std::set<int> occupiedNodes;
         const int jobSize = ai->getNodesNeeded();
-        const int routerNum = dMach.routersPerGroup * dMach.numGroups;
+        const int nodesPerGroup = dMach.nodesPerRouter * dMach.routersPerGroup;
         std::cout << "jobSize = " << jobSize << ", allocation, ";
+        int groupID = 0;
         int i = 0;
         while (i < jobSize) {
-            //randomly choose a router.
-            int routerID = rng->generateNextUInt32() % routerNum;
-            //select all nodes in this router.
+            // find the first not-full router in this group,
+            // if cannot find one, go to the next group.
+            int findLocalRouterID = -1;
+            while (findLocalRouterID == -1) {
+                for (int localRouterID = 0; localRouterID < dMach.routersPerGroup; localRouterID++) {
+                    for (int localNodeID = 0; localNodeID < dMach.nodesPerRouter; localNodeID++) {
+                        int nodeID = groupID * nodesPerGroup + localRouterID * dMach.nodesPerRouter + localNodeID;
+                        if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
+                            findLocalRouterID = localRouterID;
+                            break;
+                        }
+                    }
+                    if (findLocalRouterID != -1) {
+                        break;
+                    }
+                }
+                // haven't found one such router, go to next group.
+                if (findLocalRouterID == -1) {
+                    if (groupID < dMach.numGroups - 1) {
+                        ++groupID;
+                    }
+                    else {
+                        groupID = 0;
+                    }
+                }
+            }
+            // allocate all the nodes in this router,
             for (int localNodeID = 0; localNodeID < dMach.nodesPerRouter; localNodeID++) {
-                int nodeID = routerID * dMach.nodesPerRouter + localNodeID;
+                int nodeID = groupID * nodesPerGroup + findLocalRouterID * dMach.nodesPerRouter + localNodeID;
                 if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                     ai->nodeIndices[i] = nodeID;
-                    ++i;
                     occupiedNodes.insert(nodeID);
                     std::cout << nodeID << " ";
+                    ++i;
+                    if (i == jobSize) {
+                        break;
+                    }
                 }
-                else {
-                    continue;
-                }
-                if (i == jobSize) {
-                    break;
-                }
+            }
+            // then go to the next group.
+            if (groupID < dMach.numGroups - 1) {
+                ++groupID;
+            }
+            else {
+                groupID = 0;
             }
         }
         std::cout << endl;

@@ -10,7 +10,6 @@
 // distribution.
 
 #include "sst_config.h"
-#include "sst/core/rng/mersenne.h"
 
 #include "DflyRRNAllocator.h"
 
@@ -23,12 +22,10 @@ using namespace SST::Scheduler;
 DflyRRNAllocator::DflyRRNAllocator(const DragonflyMachine & mach)
   : DragonflyAllocator(mach)
 {
-    rng = new SST::RNG::MersenneRNG();
 }
 
 DflyRRNAllocator::~DflyRRNAllocator()
 {
-    delete rng;
 }
 
 std::string DflyRRNAllocator::getSetupInfo(bool comment) const
@@ -52,26 +49,42 @@ AllocInfo* DflyRRNAllocator::allocate(Job* j)
         //This set keeps track of allocated nodes in the current allocation.
         std::set<int> occupiedNodes;
         const int jobSize = ai->getNodesNeeded();
-        const int routerNum = dMach.routersPerGroup * dMach.numGroups;
+        const int nodesPerGroup = dMach.routersPerGroup * dMach.nodesPerRouter;
         std::cout << "jobSize = " << jobSize << ", allocation, ";
-        int i = 0;
-        while (i < jobSize) {
-            //randomly choose a router.
-            int routerID = rng->generateNextUInt32() % routerNum;
-            //select all nodes in this router.
-            for (int localNodeID = 0; localNodeID < dMach.nodesPerRouter; localNodeID++) {
-                int nodeID = routerID * dMach.nodesPerRouter + localNodeID;
+        int groupID = 0;
+        for (int i = 0; i < jobSize; i++) {
+            int localNodeID = 0;
+            while (true) {
+                int nodeID = groupID * nodesPerGroup + localNodeID;
                 if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                     ai->nodeIndices[i] = nodeID;
-                    ++i;
                     occupiedNodes.insert(nodeID);
                     std::cout << nodeID << " ";
+                    //change group.
+                    if (groupID < dMach.numGroups - 1) {
+                        ++groupID;
+                    }
+                    else {
+                        groupID = 0;
+                    }
+                    break;
                 }
                 else {
-                    continue;
-                }
-                if (i == jobSize) {
-                    break;
+                    if (localNodeID < nodesPerGroup - 1) {
+                        ++localNodeID;
+                        continue;
+                    }
+                    else {
+                        //change group.
+                        if (groupID < dMach.numGroups - 1) {
+                            ++groupID;
+                        }
+                        else {
+                            groupID = 0;
+                        }
+                        localNodeID = 0;
+                        continue;
+                    }
                 }
             }
         }

@@ -12,8 +12,6 @@
 #ifndef SST_SCHEDULER_DFLYRRRALLOCATOR_H__
 #define SST_SCHEDULER_DFLYRRRALLOCATOR_H__
 
-#include "sst/core/rng/sstrng.h"
-
 #include "DragonflyAllocator.h"
 
 namespace SST {
@@ -34,8 +32,6 @@ namespace SST {
 
                 AllocInfo* allocate(Job* j);
 
-            private:
-                SST::RNG::SSTRandom* rng; //random number generator
         };
 
     }
