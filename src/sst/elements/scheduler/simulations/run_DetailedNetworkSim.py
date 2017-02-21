@@ -38,14 +38,14 @@ def run_sim (options):
     # Run scheduler for the first time and create the first snapshot
     init_cmd  = "sst %s" %(options.schedPythonFile)
     run(init_cmd)
-    sys.exit(0)
+    #sys.exit(0)
 
     # Do the following in a loop until the simulation is completed
     # Parse scheduler snapshot->run ember->Parse ember output->run scheduler->...
     if options.shuffle == True:
-        ember_cmd = "./%s --xml %s --alpha %s --link_arrangement %s --routing %s --rankmapper %s --shuffle > %s" %(options.sched_parser, options.xmlFile, options.alpha, options.link_arrangement, options.routing, options.rankmapper, options.emberOutFile)
+        ember_cmd = "./%s --xml %s --alpha %s --link_arrangement %s --routing %s --rankmapper %s --shuffle --dflyShape %s > %s" %(options.sched_parser, options.xmlFile, options.alpha, options.link_arrangement, options.routing, options.rankmapper, options.dflyShape, options.emberOutFile)
     else:
-        ember_cmd = "./%s --xml %s --alpha %s --link_arrangement %s --routing %s --rankmapper %s > %s" %(options.sched_parser, options.xmlFile, options.alpha, options.link_arrangement, options.routing, options.rankmapper, options.emberOutFile)
+        ember_cmd = "./%s --xml %s --alpha %s --link_arrangement %s --routing %s --rankmapper %s --dflyShape %s > %s" %(options.sched_parser, options.xmlFile, options.alpha, options.link_arrangement, options.routing, options.rankmapper, options.dflyShape, options.emberOutFile)
 
     #ember_cmd = "./%s --xml %s > %s" %(options.sched_parser, options.xmlFile, options.emberOutFile)
     #ember_cmd = "./%s --xml %s --alpha %s" %(options.sched_parser, options.xmlFile, options.alpha)
@@ -133,6 +133,7 @@ def main():
     parser.add_option("--routing",  action='store', dest="routing", help="Routing algorithm.") 
     parser.add_option("--rankmapper",  action='store', dest="rankmapper", help="Custom or linear mapping.") 
     parser.add_option("--shuffle",  action='store_true', dest="shuffle", help="Random shuffling of the node list order.") 
+    parser.add_option("--dflyShape",  action='store', dest="dflyShape", help="The dragonfly2 machine shape parameter.") 
 
     (options, args) = parser.parse_args()
 

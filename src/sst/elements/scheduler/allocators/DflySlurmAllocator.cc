@@ -77,11 +77,13 @@ AllocInfo* DflySlurmAllocator::allocate(Job* j)
             // if there exists best fit, then allocate the job to this best fit.
             if (BestRouter != -1) {
                 int nodeID = BestRouter * dMach.nodesPerRouter;
-                for (int i = 0; i < jobSize; i++) {
+                int i = 0;
+                while (i < jobSize) {
                     if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                         ai->nodeIndices[i] = nodeID;
                         occupiedNodes.insert(nodeID);
                         std::cout << nodeID << " ";
+                        ++i;
                         ++nodeID;
                     }
                     else {

@@ -2,10 +2,10 @@
 '''
 Created by  : Yijia Zhang
 Description : Run a batch of sst jobs with NetworkSim
+this is the copy for record, where manual hybrid allocation using myloadfile possible can run.
+Future editions will be compatible with the manual hybrid allocation simulation.
 
 run by:
-    ./run.py traceGen
-    ./run.py randomSized
 
 ### TODO ###
 
@@ -28,7 +28,7 @@ if sys.platform == 'win32':
 #----- queue-related variables -----#
 main_sim_path = "/mnt/nokrb/zhangyj/SST/scratch/src/sst-elements/src/sst/elements/scheduler/simulations"
 env_script = "/mnt/nokrb/zhangyj/SST/exportSST.sh" # only modifys the environment variables.
-qsub = True# whether qsub the program.
+qsub = False# whether qsub the program.
 setQueue = False
 if setQueue:
     queue = 'icsg.q' #bme.q, ece.q, me.q is great.
@@ -42,7 +42,7 @@ RouterInGroup = 4
 nodeOneRouter = 4
 nodeInGroup = RouterInGroup * nodeOneRouter
 
-mode = sys.argv[1]#'randomSized'# singleType, hybrid, baseline, traceGen, randomSized.
+mode = 'randomSized'# singleType, hybrid, baseline, randomSized.
 applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 allocations = ['dflyhybrid']#['dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
@@ -88,15 +88,20 @@ elif mode == 'singleType':
     graphfileNames = 'alltoall_LN8.mtx'
     phasefileNames = 'alltoall.phase'
 
-elif mode == 'traceGen' or mode == 'randomSized':
-    emberSimulation = True
+elif mode == 'traceGen':
     traceNum = 1
     sizeMax = 32 # possible largest number of nodes of one job.
     utilization = 100# 25, 50, 100
     hString = 'randomSized_G%dR%dN%d_uti%d_trace%d' % (groupNum, RouterInGroup, nodeOneRouter, utilization, traceNum)
+
+elif mode == 'randomSized':
+    emberSimulation = False
+    traceNum = 1
+    utilization = 100# 25, 50, 100
+    hString = 'randomSized_G%dR%dN%d_uti%d_trace%d' % (groupNum, RouterInGroup, nodeOneRouter, utilization, traceNum)
+    pyfileName = hString + '.py'
     simfileName = '%s.sim' % hString
-    phasefileName = 'alltoall.phase'
-    expIter = 4
+    phasefileName = '%s.phase' % hString
 
 #====================================
 dflyShape = '%d:%d:%d:%d' % (nodeOneRouter, RouterInGroup, 1, groupNum)# input into ember.
@@ -185,31 +190,21 @@ def main():
                                     submit_job(options, strategy, messageIter, messageSize)
 
     elif mode == 'traceGen':
-        generateSimfile(simfileName, graphName='empty' , phaseName=phasefileName, runtime=1000, sizeMax=sizeMax)
+        generateSimfile(simfileName, 'empty' , phasefileName, 1000, sizeMax, jobNum)
         generatePhasefile('empty', phasefileName)
-        for application in applications:
-            for mapper in mappers:
-                for allocator in allocations:
-                    generatePyfile(simfileName, application, mapper, dflyArgv, allocator)
 
     elif mode == 'randomSized':
         for application in applications:
             for mapper in mappers:
                 for allocator in allocations:
+                    generatePyfile(simfileName, mapper, pyfileName, dflyArgv, allocator)
                     for rout in routings:
-                        for alpha in alphaRange:
-                            for iteration in range(expIter):
-                                options.alpha = alpha
-                                options.application = application
-                                options.allocator = allocator
-                                options.mapper = mapper
-                                options.routing = rout
-                                options.iteration = iteration
-                                options.pyfileName = '%s_%s_%s_%s.py' % (hString, application, mapper, allocator)
-                                submit_job(options)
-
-    else:
-        print('mode not valid')
+                        #options.alpha = alpha
+                        options.application = application
+                        options.allocator = allocator
+                        options.mapper = mapper
+                        options.routing = rout
+                        submit_job(options)
 
 #----- main end -----#
 
@@ -469,11 +464,10 @@ def generateMyLoadfile(options, graphName, strategy, messageIter, messageSize):
     fo.close()
 
 
-def generatePyfile(simfileName, application, mapper, dflyArgv, allocator):
+def generatePyfile(simfileName, mapper, pyName, dflyArgv, allocator):
     '''
     use a python file template to generate the required file.
     '''
-    pyName = '%s_%s_%s_%s.py' % (hString, application, mapper, allocator)
     detailedEmber = 'ON' if emberSimulation else 'OFF'
     simfileAddr = 'jobtrace_files/%s' % simfileName
     os.system('./makeInput.py %s %s %s %s %s' % (simfileAddr, pyName, dflyArgv, allocator, detailedEmber) )
@@ -528,7 +522,7 @@ def generatePyfile(simfileName, application, mapper, dflyArgv, allocator):
 #    snap.close()
 #    print('snapshotParser_sched.py modified.')
 
-def generateSimfile(simName, graphName, phaseName, runtime, sizeMax=1):
+def generateSimfile(simName, graphName, phaseName, runtime, sizeMax=1, jobNum=1):
     '''
     generate the .sim files in the jobtrace_file folder.
     mode: 'randomSized' generate a list of random sized (node number) jobs.
@@ -537,6 +531,7 @@ def generateSimfile(simName, graphName, phaseName, runtime, sizeMax=1):
     In 'twoSized' mode, graphName and phaseName are lists.
     In 'randomSized' mode, graphName is ignored. phaseName and phasefile content are the same for all jobs.
     sizeMax is the max node number possible.
+    jobNum is the number of jobs.
     '''
     import random
     tempname = 'jobtrace_files/' + simName
@@ -559,27 +554,15 @@ def generateSimfile(simName, graphName, phaseName, runtime, sizeMax=1):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (lcore, runtime, phaseName[1])
         for iN in range(lNum):
             simfile.write(simLine)
-    elif mode == 'traceGen' or mode == 'randomSized':
-        freeNode = int(nodeInGroup * groupNum * utilization/100)
-        while freeNode != 0:
+    elif mode == 'randomSized':
+        for ijob in range(jobNum):
             node = random.randint(1, sizeMax)
-            if node <= freeNode:
-                # make a new job.
-                freeNode = freeNode - node
-                print('jobSize: %d nodes' % node)
-                core = node * 2
-                arriveTime = 0
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
-                simfile.write(simLine)
-            else:
-                # make all the freeNode to be a job.
-                node = freeNode
-                freeNode = 0
-                print('jobSize: %d nodes' % node)
-                core = node * 2
-                arriveTime = 0
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
-                simfile.write(simLine)
+            print('jobSize: %d nodes' % node)
+            core = node * 2
+            #arriveTime = ijob * 100 # can be changed into Poisson process.
+            arriveTime = 0
+            simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
+            simfile.write(simLine)
 
     simfile.close()
     print('%s generated.' % simName)
@@ -591,7 +574,7 @@ def generatePhasefile(graphName, phaseName):
     if useUnstrMotif == True:
         phasefile.write('Unstructured\tgraphfile=graph_files/%s\n' % graphName)
     else:
-        phasefile.write('Alltoall    iterations=2    bytes=10000\n')
+        phasefile.write('Alltoall\n')
     phasefile.write('Fini\n')
     phasefile.close()
     print('%s generated.' % phaseName)
@@ -644,8 +627,8 @@ def submit_job(options, strategy='empty', messageIter=1, messageSize=1):
         else:
             options.exp_folder = '%s_%s' % (hString, options.routing)# overide the -e parameter.
     elif mode == 'randomSized':
-        exp_name = '%s_%s_%s_%s_alpha%s_iter%d' %(hString, options.application, options.mapper, options.allocator, str(options.alpha), options.iteration)
-        options.exp_folder = 'randomSized' # overide the -e parameter.
+        exp_name = '%s_%s_%s' %(options.application, options.mapper, options.allocator)
+        options.exp_folder = '%s' % (hString)# overide the -e parameter.
 
     options.outdir = "%s/%s/%s" %(options.main_sim_path, options.exp_folder, exp_name)
     #os.environ['SIMOUTPUT'] = folder
@@ -654,7 +637,10 @@ def submit_job(options, strategy='empty', messageIter=1, messageSize=1):
     execcommand += 'module load anaconda\n'# this line is necessary to prevent library problem.
     execcommand += "source %s\n" %(options.env_script)
     execcommand += "export SIMOUTPUT=%s/\n" %(options.outdir)
-    execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --alpha %s --routing %s --dflyShape %s --shuffle --schedPy ./%s\n" %(str(options.alpha), options.routing, dflyShape, options.pyfileName)
+    if mode == 'hybrid' or mode == 'baseline':
+        execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --alpha %s --routing %s --dflyShape %s --schedPy ./%s.py\n" %(options.alpha, options.routing, dflyShape, hString)
+    elif mode == 'randomSized':
+        execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --routing %s --dflyShape %s --schedPy ./%s.py\n" %(options.routing, dflyShape, hString)
     execcommand += "date\n"
 
     shfile = "%s/%s.sh" %(options.outdir, exp_name)

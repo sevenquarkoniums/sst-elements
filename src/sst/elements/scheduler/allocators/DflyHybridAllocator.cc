@@ -52,8 +52,8 @@ AllocInfo* DflyHybridAllocator::allocate(Job* j)
         //This set keeps track of allocated nodes in the current allocation.
         std::set<int> occupiedNodes;
         const int jobSize = ai->getNodesNeeded();
+        std::cout << "jobSize=" << jobSize << ", ";
         if (jobSize <= dMach.nodesPerRouter) {
-            std::cout << "small,";
             //find the router with the most free nodes.
             int BestRouter = -1;
             int BestRouterFreeNodes = 0;
@@ -75,11 +75,13 @@ AllocInfo* DflyHybridAllocator::allocate(Job* j)
             //we allocate the job to this router simply.
             if (jobSize <= BestRouterFreeNodes) {
                 int nodeID = BestRouter * dMach.nodesPerRouter;
-                for (int i = 0; i < jobSize; i++) {
+                int i = 0;
+                while (i < jobSize) {
                     if ( dMach.isFree(nodeID) && occupiedNodes.find(nodeID) == occupiedNodes.end() ) {
                         ai->nodeIndices[i] = nodeID;
                         occupiedNodes.insert(nodeID);
                         std::cout << nodeID << " ";
+                        ++i;
                         ++nodeID;
                     }
                     else {
@@ -93,9 +95,6 @@ AllocInfo* DflyHybridAllocator::allocate(Job* j)
         }
         int nodesPerGroup = dMach.routersPerGroup * dMach.nodesPerRouter;
         if (jobSize <= nodesPerGroup) {
-            if (jobSize > dMach.nodesPerRouter) {
-                std::cout << "medium,";
-            }
             //find the group with the most free nodes.
             int BestGroup = -1;
             int BestGroupFreeNodes = 0;
@@ -160,9 +159,6 @@ AllocInfo* DflyHybridAllocator::allocate(Job* j)
         }
         //job cannot fit in one group, so
         //it will simply spread across the machine.
-        if (jobSize > nodesPerGroup) {
-            std::cout << "large,";
-        }
         int groupID = 0;
         for (int i = 0; i < jobSize; i++) {
             int localNodeID = 0;

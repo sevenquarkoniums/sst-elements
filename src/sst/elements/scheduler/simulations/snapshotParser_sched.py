@@ -1,23 +1,15 @@
 #!/usr/bin/env python
 '''
 Date        : 07/17/2015  
-Created by  : Fulya Kaplan
+Created by  : Fulya Kaplan, edited by Yijia.
 Description : This sub-python script parses the snapshot xml file that is dumped by the scheduler. 
 It then creates a runscript for ember simulation and runs the script. 
 Created specifically for detailed simulation of network congestion together with scheduling & application task mapping algorithms.
 
 ### TODO ###
-1 can add link_arrangement parameter.
-2 can use the routing parameter instead of the manual-modify version.
-3 can delete myloadfile lines.
+1 can delete myloadfile lines.
 '''
-
-#routing: minimal, valiant, adaptive_local
-routing = 'adaptive_local'
-dragonPara = '2:4:1:17' # hosts_per_router, routers_per_group, intergroup_per_router, num_groups. 2:4:1:17 
 useMyLoadfile = False# name: myloadfile.
-
-
 
 import os, sys
 from xml.dom.minidom import parse
@@ -274,13 +266,14 @@ def generate_ember_script (TimeObject, JobObjects, loadfile, mapfile, options):
         execcommand = "sst --stop-at " + StopAtTime
     # Generate commandline string to execute
     #execcommand += " --model-options=\"--topo=torus --shape=2x2x2 --numCores=1 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0"
-    execcommand += " --model-options=\"--topo=dragonfly2 --shape=%s --routingAlg=%s --numCores=2 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0" % (dragonPara, routing)
+    execcommand += " --model-options=\"--topo=dragonfly2 --shape=%s --routingAlg=%s --numCores=2 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0" % (options.dflyShape, options.routing)
+        # dragonfly2 has different link arrangements.
     execcommand += " --host_bw=1GB/s --group_bw=1GB/s --global_bw=%sGB/s --netBW=%sGB/s" %(global_bw, netBW)
     execcommand += " --embermotifLog=" + options.output_folder + "motif"
     if options.rankmapper == "custom":
         execcommand += " --rankmapper=ember.CustomMap"
     else:
-        execcommand += " --rankmapper=ember.LinearMap"        
+        execcommand += " --rankmapper=ember.LinearMap"
     execcommand += " --mapFile=" + mapfile
     execcommand += " --networkStatOut=" + options.output_folder + "networkStats.csv"
     if useMyLoadfile == False:
@@ -307,6 +300,7 @@ def main():
     parser.add_option("--routing",  action='store', dest="routing", help="Routing algorithm.") 
     parser.add_option("--rankmapper",  action='store', dest="rankmapper", help="Custom or linear mapping.") 
     parser.add_option("--shuffle",  action='store_true', dest="shuffle", help="Random shuffling of the node list order.") 
+    parser.add_option("--dflyShape",  action='store', dest="dflyShape", help="the shape parameter for dragonfly2 machine.")
 
     (options, args) = parser.parse_args()
     

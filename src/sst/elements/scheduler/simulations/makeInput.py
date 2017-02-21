@@ -1,16 +1,21 @@
 #!/usr/bin/env python
 '''
+edited by Yijia.
+
 SST scheduler simulation input file generator
 Input parameters are given below
 Setting a parameter to "default" or "" will select the default option
+
+called by run.py.
 '''
 import os
+import sys
 
 # Input workload trace path:
-traceName = 'jobtrace_files/bisection_N1.sim'
+traceName = sys.argv[1]
 
 # Output file name:
-outFile = 'simple_libtopomap_bisection_N1.py'
+outFile = sys.argv[2]
 
 # Machine (cluster) configuration:
 # mesh[xdim, ydim, zdim], torus[xdim, ydim, zdim], simple,
@@ -19,7 +24,7 @@ outFile = 'simple_libtopomap_bisection_N1.py'
 #           localTopology:[all_to_all]
 #           globalTopology:[absolute,circulant,relative]
 # (default: simple)
-machine = 'dragonfly[8,11,2,2,all_to_all,absolute]'
+machine = 'dragonfly[%s,all_to_all,absolute]' % (sys.argv[3])
 
 # Number of machine nodes
 # The script calculates the number of nodes if mesh or torus machine is provided.
@@ -42,7 +47,7 @@ FST = ''
 # bestfit, constraint, energy, firstfit, genalg, granularmbs, hybrid, mbs,
 # mc1x1, mm, nearest, octetmbs, oldmc1x1,random, simple, sortedfreelist, 
 # nearestamap, spectralamap. (default: simple)
-allocator = 'simple'
+allocator = sys.argv[4]
 
 # Task mapping algorithm:
 # simple, rcb, random, topo, rcm, nearestamap, spectralamap. (default: simple)
@@ -62,7 +67,7 @@ randomSeed = ''
 
 # Detailed network simulation mode
 # ON, OFF (default: OFF)
-detailedNetworkSim = 'ON'
+detailedNetworkSim = sys.argv[5]
 
 # Completed jobs trace (in ember) for detailed network sim mode
 # file path, none (default: none)
@@ -81,10 +86,10 @@ import sys
 
 if __name__ == '__main__':
     if outFile == "" or outFile == "default":
-    	print "Error: There is no default value for outFile"
-    	sys.exit()
+        print("Error: There is no default value for outFile")
+        sys.exit()
     f = open(outFile,'w')
-  
+
     f.write('# scheduler simulation input file\n')
     f.write('import sst\n')
     f.write('\n')
@@ -95,30 +100,30 @@ if __name__ == '__main__':
     f.write('scheduler = sst.Component("myScheduler", \
             "scheduler.schedComponent")\n')
     f.write('scheduler.addParams({\n')
-  
+
     if traceName == "" or traceName == "default":
-    	print "Error: There is no default value for traceName"
-    	os.remove(outFile)
-    	sys.exit()
+        print("Error: There is no default value for traceName")
+        os.remove(outFile)
+        sys.exit()
     f.write('      "traceName" : "' + traceName + '",\n')
     if machine != "" and machine != "default":
-    	f.write('      "machine" : "' + machine + '",\n')
+        f.write('      "machine" : "' + machine + '",\n')
     if coresPerNode != "":
-    	f.write('      "coresPerNode" : "' + coresPerNode + '",\n')
+        f.write('      "coresPerNode" : "' + coresPerNode + '",\n')
     if scheduler != "" and scheduler != "default":
-    	f.write('      "scheduler" : "' + scheduler + '",\n')
+        f.write('      "scheduler" : "' + scheduler + '",\n')
     if FST != "" and FST != "default":
-    	f.write('      "FST" : "' + FST + '",\n')
+        f.write('      "FST" : "' + FST + '",\n')
     if allocator != "" and allocator != "default":
-    	f.write('      "allocator" : "' + allocator + '",\n')
+        f.write('      "allocator" : "' + allocator + '",\n')
     if taskMapper != "" and taskMapper != "default":
-    	f.write('      "taskMapper" : "' + taskMapper + '",\n')
+        f.write('      "taskMapper" : "' + taskMapper + '",\n')
     if timeperdistance != "" and timeperdistance != "default":
-    	f.write('      "timeperdistance" : "' + timeperdistance + '",\n')
+        f.write('      "timeperdistance" : "' + timeperdistance + '",\n')
     if dMatrixFile != "" and dMatrixFile != "default":
-    	f.write('      "dMatrixFile" : "' + dMatrixFile + '",\n')
+        f.write('      "dMatrixFile" : "' + dMatrixFile + '",\n')
     if randomSeed != "" and randomSeed != "default":
-    	f.write('      "runningTimeSeed" : "' + randomSeed + '",\n')
+        f.write('      "runningTimeSeed" : "' + randomSeed + '",\n')
     if detailedNetworkSim != "" and detailedNetworkSim != "default":
         f.write('      "detailedNetworkSim" : "' + detailedNetworkSim + '",\n')
     if completedJobsTrace != "" and completedJobsTrace != "default":
@@ -126,17 +131,18 @@ if __name__ == '__main__':
     if runningJobsTrace != "" and runningJobsTrace != "default":
         f.write('      "runningJobsTrace" : "' + runningJobsTrace + '",\n')
 
-    f.seek(-2, os.SEEK_END)
-    f.truncate()
+    #f.seek(-2, os.SEEK_END) # don't understand this line.
+    #f.truncate()
+
     f.write('\n})\n')
     f.write('\n')
-  
+
     f.write('# nodes\n')
     if machine.split('[')[0] == 'mesh' or machine.split('[')[0] == 'torus':
-    	nums = machine.split('[')[1]
-    	nums = nums.split(']')[0]
-    	nums = nums.split(',')
-    	numberNodes = int(nums[0])*int(nums[1])*int(nums[2])
+        nums = machine.split('[')[1]
+        nums = nums.split(']')[0]
+        nums = nums.split(',')
+        numberNodes = int(nums[0])*int(nums[1])*int(nums[2])
     elif machine.split('[')[0] == 'dragonfly':
         nums = machine.split('[')[1]
         nums = nums.split(']')[0]
@@ -145,19 +151,19 @@ if __name__ == '__main__':
 
     numberNodes = int(numberNodes)
     for i in range(0, numberNodes):
-    	f.write('n' + str(i) + ' = sst.Component("n' + str(i) + \
+        f.write('n' + str(i) + ' = sst.Component("n' + str(i) + \
             '", "scheduler.nodeComponent")\n')
-    	f.write('n' + str(i) + '.addParams({\n')
-    	f.write('      "nodeNum" : "' + str(i) + '",\n')
-    	f.write('})\n')
+        f.write('n' + str(i) + '.addParams({\n')
+        f.write('      "nodeNum" : "' + str(i) + '",\n')
+        f.write('})\n')
     f.write('\n')
-    
+
     f.write('# define links\n')
     for i in range(0, numberNodes):
-    	f.write('l' + str(i) + ' = sst.Link("l' + str(i) + '")\n')
-    	f.write('l' + str(i) + '.connect( (scheduler, "nodeLink' + str(i) + \
+        f.write('l' + str(i) + ' = sst.Link("l' + str(i) + '")\n')
+        f.write('l' + str(i) + '.connect( (scheduler, "nodeLink' + str(i) + \
             '", "0 ns"), (n' + str(i) + ', "Scheduler", "0 ns") )\n')
     f.write('\n')
-    
+
     f.close()
 
