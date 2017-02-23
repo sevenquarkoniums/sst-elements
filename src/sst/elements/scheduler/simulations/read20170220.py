@@ -23,7 +23,6 @@ import sys
 #    folder = sys.argv[1]# cannot include / at the end.
 #mainFolderName = 'Hybrid_R4G17'
 alphaRange = [0.5, 1.0, 2.0, 4.0]
-mode = 'randomSized'
 #=========================
 import datetime
 now = datetime.datetime.now()
@@ -37,47 +36,57 @@ else:
 import tools
     
 
-def inspect(path):
+def inspect(path, folder):
     '''
-    get a table with results from all experiments.
+    get a table with results from a single set of experiments.
     '''
     import pandas as pd
     print('reading %s...' % path)
     fileList = tools.getfiles(path)
-    if mode == 'randomSized':
-        df = pd.DataFrame(columns=['mode','machine','utilization','traceNum','app','taskmap','alloc','alpha','expIter','time(us)'])
+    fosplit = folder.split('_')
+    mode = fosplit[0]
+    machine = fosplit[1]
+    if mode == 'Baseline':# Baseline_R4G17_alltoall_6_minimal.
+        df = pd.DataFrame(columns=['mode','machine','alpha','routing','app','appSize','alloc','taskmap','messageIter','messageSize','expIter','time(us)'])
+        appSize = fosplit[3]
+        routing = fosplit[4]
+    elif mode == 'Hybrid':# Hybrid_R4G17_alltoall_11_1_1_6_minimal.
+        baseName = 'Baseline_%s' % machine 
+        baseDF = pd.read_csv('%s/minTimes.csv' % baseName)
+        df = pd.DataFrame(columns=['mode','machine','alpha','routing','app','smallNum','smallSize','largeNum','largeSize',
+            'alloc','taskmap','messageIter','messageSize','expIter','time(us)'])
+        sNum = int(fosplit[3])
+        sSize = int(fosplit[4])
+        lNum = int(fosplit[5])
+        lSize = int(fosplit[6])
+        routing = fosplit[7]
     for file in fileList:
         split = file.split('\\') if sys.platform == 'win32' else file.split('/')
         fname = split[-1]
         if fname == 'ember.out':
-            para = split[-2]
+            para = split[-2]# alpha1.0_alltoall_random_libtopomap_2_100000_iter37
             paraSplit = para.split('_')
             # exp info.
-            machine = paraSplit[1]
-            utilization = int(paraSplit[2].split('uti')[1])
-            traceNum = int(paraSplit[3].split('trace')[1])
-            app = paraSplit[4]
-            taskmap = paraSplit[5]
-            alloc = paraSplit[6]
-            alpha = float(paraSplit[7].split('alpha')[1])
-            expIter = int(paraSplit[8].split('iter')[1])
+            alpha = float(paraSplit[0].split('alpha')[1])
+            app = paraSplit[1]
+            alloc = paraSplit[2]
+            taskmap = paraSplit[3]
+            messageIter = int(paraSplit[4])
+            messageSize = int(paraSplit[5])
+            expIter = int(paraSplit[6].split('iter')[1])
             # read file.
             if mode == 'Baseline':
                 (time, find) = read(file, 'last', mode)
             elif mode == 'Hybrid':
                 parameters = (sNum,sSize,lNum,lSize,baseDF,routing,alpha)
                 (time, find) = read(file, 'normalizedAvg', mode, parameters)
-            elif mode == 'randomSized':
-                (time, find) = read(file, 'complete', mode)
-            if find == 1:# if find == 0 so simulation didn't complete, no records in the df.
+            if find == 1:# if didn't complete, no records in the df.
                 if mode == 'Baseline':
                     df.loc[len(df),:] = [mode,machine,alpha,routing,app,appSize,alloc,taskmap,messageIter,messageSize,expIter,time]
                 elif mode == 'Hybrid':
                     df.loc[len(df),:] = [mode,machine,alpha,routing,app,sNum,sSize,lNum,lSize,alloc,taskmap,messageIter,messageSize,expIter,time]
-                elif mode == 'randomSized':
-                    df.loc[len(df),:] = [mode,machine,utilization,traceNum,app,taskmap,alloc,alpha,expIter,time]
     return df
-
+            
 def read(file, readmode, mode, parameters=0):
     '''
     read the finish time of one ember.out file.
@@ -93,18 +102,6 @@ def read(file, readmode, mode, parameters=0):
                 string = line.split(':')[3].split(' ')# 32101 us
                 number = float(string[0])
                 unit   = string[1].split('\n')[0]
-                time = convertToMicro(number, unit)
-        if find == 0:# no this line.
-            time = 0
-            print(file)
-
-    elif readmode == 'complete':# the simulation time.
-        for line in infile:
-            if line.startswith('Simulation is complete'):
-                find = 1
-                string = line.split(':')[1].split(' ')
-                number = float(string[1])
-                unit   = string[2].split('\n')[0]
                 time = convertToMicro(number, unit)
         if find == 0:# no this line.
             time = 0
@@ -395,8 +392,7 @@ def bestAlloc(mainFolderName):
 
 #================================
 # main function starts.
-df = inspect('randomSized')
-df.to_csv('randomSized.csv', index=False)
+#inspect('randomSized', )
 #readBaseline('Baseline_R4G17')
 #bestBase('Baseline_R4G17')
 #readHybrid('Hybrid_R4G17')

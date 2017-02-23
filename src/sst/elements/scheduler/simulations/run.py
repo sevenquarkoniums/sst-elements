@@ -5,7 +5,7 @@ Description : Run a batch of sst jobs with NetworkSim
 
 run by:
     ./run.py traceGen
-    ./run.py randomSized
+    ./run.py randomSized -f
 
 ### TODO ###
 
@@ -28,7 +28,7 @@ if sys.platform == 'win32':
 #----- queue-related variables -----#
 main_sim_path = "/mnt/nokrb/zhangyj/SST/scratch/src/sst-elements/src/sst/elements/scheduler/simulations"
 env_script = "/mnt/nokrb/zhangyj/SST/exportSST.sh" # only modifys the environment variables.
-qsub = True# whether qsub the program.
+qsub = False# whether qsub the program.
 setQueue = False
 if setQueue:
     queue = 'icsg.q' #bme.q, ece.q, me.q is great.
@@ -37,15 +37,17 @@ if useMoreMemory:
     memory = 4
 
 #----- simulation parameters -----#
-groupNum = 9
-RouterInGroup = 4
+topFolder = 'randomSizedSched'
+groupNum = 33
+RouterInGroup = 8
 nodeOneRouter = 4
 nodeInGroup = RouterInGroup * nodeOneRouter
 
 mode = sys.argv[1]#'randomSized'# singleType, hybrid, baseline, traceGen, randomSized.
 applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
-allocations = ['dflyhybrid']#['dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
+allocations = ['random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
+#allocations = ['simplespread']
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 alphaRange = [4]#[0.25, 0.5, 1, 2, 4]
 messageIters = [2]#[2**x for x in range(4)]
@@ -89,14 +91,14 @@ elif mode == 'singleType':
     phasefileNames = 'alltoall.phase'
 
 elif mode == 'traceGen' or mode == 'randomSized':
-    emberSimulation = True
-    traceNum = 1
-    sizeMax = 32 # possible largest number of nodes of one job.
+    emberSimulation = False
+    traceNum = 0
+    sizeMax = 64 # possible largest number of nodes of one job.
     utilization = 100# 25, 50, 100
     hString = 'randomSized_G%dR%dN%d_uti%d_trace%d' % (groupNum, RouterInGroup, nodeOneRouter, utilization, traceNum)
     simfileName = '%s.sim' % hString
     phasefileName = 'alltoall.phase'
-    expIter = 4
+    expIter = 1
 
 #====================================
 dflyShape = '%d:%d:%d:%d' % (nodeOneRouter, RouterInGroup, 1, groupNum)# input into ember.
@@ -645,7 +647,7 @@ def submit_job(options, strategy='empty', messageIter=1, messageSize=1):
             options.exp_folder = '%s_%s' % (hString, options.routing)# overide the -e parameter.
     elif mode == 'randomSized':
         exp_name = '%s_%s_%s_%s_alpha%s_iter%d' %(hString, options.application, options.mapper, options.allocator, str(options.alpha), options.iteration)
-        options.exp_folder = 'randomSized' # overide the -e parameter.
+        options.exp_folder = topFolder # overide the -e parameter.
 
     options.outdir = "%s/%s/%s" %(options.main_sim_path, options.exp_folder, exp_name)
     #os.environ['SIMOUTPUT'] = folder
