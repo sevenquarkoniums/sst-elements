@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 '''
 Created by  : Yijia Zhang
-Description : Run a batch of sst jobs with NetworkSim
+Description : Run a batch of sst jobs.
 
 run by:
     ./run.py traceGen
@@ -12,13 +12,7 @@ run by:
 ### CANDO ###
 
 ### warning ###
-!!! cannot change routing/shape before all program started sst/ember.
 
-machine size
-::need to change snapshotParser_sched.py for different machine size. and pyfileTemplate.
-
-message size
-::emberunstructured.cc modified p_size to 1000 to shorten alltoall simulation time. 100 won't work well, with output stall being 0.
 '''
 import sys
 if sys.platform == 'win32':
@@ -28,7 +22,7 @@ if sys.platform == 'win32':
 #----- queue-related variables -----#
 main_sim_path = "/mnt/nokrb/zhangyj/SST/scratch/src/sst-elements/src/sst/elements/scheduler/simulations"
 env_script = "/mnt/nokrb/zhangyj/SST/exportSST.sh" # only modifys the environment variables.
-qsub = False# whether qsub the program.
+qsub = True# whether qsub the program.
 setQueue = False
 if setQueue:
     queue = 'icsg.q' #bme.q, ece.q, me.q is great.
@@ -37,11 +31,12 @@ if useMoreMemory:
     memory = 4
 
 #----- simulation parameters -----#
-topFolder = 'randomSizedSched'
-groupNum = 33
-RouterInGroup = 8
+topFolder = 'randomSized'
+groupNum = 9
+RouterInGroup = 4
 nodeOneRouter = 4
 nodeInGroup = RouterInGroup * nodeOneRouter
+alphaRange = [1]#[0.25, 0.5, 1, 2, 4]
 
 mode = sys.argv[1]#'randomSized'# singleType, hybrid, baseline, traceGen, randomSized.
 applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
@@ -49,7 +44,6 @@ routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 allocations = ['random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
 #allocations = ['simplespread']
 mappers = ['topo'] # if want to change this, need to change the sst input file.
-alphaRange = [4]#[0.25, 0.5, 1, 2, 4]
 messageIters = [2]#[2**x for x in range(4)]
 messageSizes = [10**5]#[10**x for x in range(1,8)]
 
@@ -91,10 +85,10 @@ elif mode == 'singleType':
     phasefileNames = 'alltoall.phase'
 
 elif mode == 'traceGen' or mode == 'randomSized':
-    emberSimulation = False
+    emberSimulation = True
     traceNum = 0
-    sizeMax = 64 # possible largest number of nodes of one job.
-    utilization = 100# 25, 50, 100
+    sizeMax = 32 # possible largest number of nodes of one job.
+    utilization = 75# 25, 50, 100
     hString = 'randomSized_G%dR%dN%d_uti%d_trace%d' % (groupNum, RouterInGroup, nodeOneRouter, utilization, traceNum)
     simfileName = '%s.sim' % hString
     phasefileName = 'alltoall.phase'
@@ -475,7 +469,7 @@ def generatePyfile(simfileName, application, mapper, dflyArgv, allocator):
     '''
     use a python file template to generate the required file.
     '''
-    pyName = '%s_%s_%s_%s.py' % (hString, application, mapper, allocator)
+    pyName = 'sstInput/%s_%s_%s_%s.py' % (hString, application, mapper, allocator)
     detailedEmber = 'ON' if emberSimulation else 'OFF'
     simfileAddr = 'jobtrace_files/%s' % simfileName
     os.system('./makeInput.py %s %s %s %s %s' % (simfileAddr, pyName, dflyArgv, allocator, detailedEmber) )
@@ -656,7 +650,7 @@ def submit_job(options, strategy='empty', messageIter=1, messageSize=1):
     execcommand += 'module load anaconda\n'# this line is necessary to prevent library problem.
     execcommand += "source %s\n" %(options.env_script)
     execcommand += "export SIMOUTPUT=%s/\n" %(options.outdir)
-    execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --alpha %s --routing %s --dflyShape %s --shuffle --schedPy ./%s\n" %(str(options.alpha), options.routing, dflyShape, options.pyfileName)
+    execcommand += "python run_DetailedNetworkSim.py --emberOut ember.out --alpha %s --routing %s --dflyShape %s --shuffle --schedPy sstInput/%s\n" %(str(options.alpha), options.routing, dflyShape, options.pyfileName)
     execcommand += "date\n"
 
     shfile = "%s/%s.sh" %(options.outdir, exp_name)
