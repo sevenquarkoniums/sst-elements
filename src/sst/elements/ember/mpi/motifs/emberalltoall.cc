@@ -47,7 +47,7 @@ bool EmberAlltoallGenerator::generate( std::queue<EmberEvent*>& evQ) {
             //double latency_per_iter = latency_us/(double)m_iterations;
             //output("Motif Latency: JobNum:%d Total latency:%.3f us\n", jobId, latency_us );
             //output("Motif Latency: JobNum:%d Per iteration latency:%.3f us\n", jobId, latency_per_iter );
-            output("Job Finished: JobNum:%d Time:%" PRIu64 " us\n", jobId,  getCurrentSimTimeMicro());
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
         }
         return true;
     }

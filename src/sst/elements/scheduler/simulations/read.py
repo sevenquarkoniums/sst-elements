@@ -23,7 +23,7 @@ import sys
 #    folder = sys.argv[1]# cannot include / at the end.
 #mainFolderName = 'Hybrid_R4G17'
 alphaRange = [0.5, 1.0, 2.0, 4.0]
-mode = 'randomSized'
+mode = 'hybrid'
 #=========================
 import datetime
 now = datetime.datetime.now()
@@ -44,8 +44,8 @@ def inspect(path):
     import pandas as pd
     print('reading %s...' % path)
     fileList = tools.getfiles(path)
-    if mode == 'randomSized':
-        df = pd.DataFrame(columns=['mode','machine','utilization','traceNum','app','taskmap','alloc','alpha','expIter','time(us)'])
+    if mode == 'hybrid':
+        df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter','traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','time(us)'])
     for file in fileList:
         split = file.split('\\') if sys.platform == 'win32' else file.split('/')
         fname = split[-1]
@@ -53,29 +53,33 @@ def inspect(path):
             para = split[-2]
             paraSplit = para.split('_')
             # exp info.
-            machine = paraSplit[1]
-            utilization = int(paraSplit[2].split('uti')[1])
-            traceNum = int(paraSplit[3].split('trace')[1])
-            app = paraSplit[4]
-            taskmap = paraSplit[5]
-            alloc = paraSplit[6]
-            alpha = float(paraSplit[7].split('alpha')[1])
-            expIter = int(paraSplit[8].split('iter')[1])
+            machine = paraSplit[0]
+            groupNum = int(machine.split('G')[1].split('R')[0])
+            routersPerGroup = int(machine.split('R')[1].split('N')[0])
+            nodesPerRouter = int(machine.split('N')[1])
+            utilization = int(paraSplit[1].split('uti')[1])
+            application = paraSplit[2]
+            messageSize = int(paraSplit[3].split('mesSize')[1])
+            messageIter = int(paraSplit[4].split('mesIter')[1])
+            traceMode = paraSplit[5]
+            traceNum = int(paraSplit[6])
+            allocation = paraSplit[7]
+            taskmapping = paraSplit[8]
+            scheduler = paraSplit[9]
+            routing = paraSplit[10]
+            alpha = float(paraSplit[11].split('alpha')[1])
+            expIter = int(paraSplit[12].split('expIter')[1])
             # read file.
             if mode == 'Baseline':
                 (time, find) = read(file, 'last', mode)
-            elif mode == 'Hybrid':
-                parameters = (sNum,sSize,lNum,lSize,baseDF,routing,alpha)
-                (time, find) = read(file, 'normalizedAvg', mode, parameters)
-            elif mode == 'randomSized':
+            elif mode == 'hybrid':
                 (time, find) = read(file, 'complete', mode)
             if find == 1:# if find == 0 so simulation didn't complete, no records in the df.
                 if mode == 'Baseline':
                     df.loc[len(df),:] = [mode,machine,alpha,routing,app,appSize,alloc,taskmap,messageIter,messageSize,expIter,time]
-                elif mode == 'Hybrid':
-                    df.loc[len(df),:] = [mode,machine,alpha,routing,app,sNum,sSize,lNum,lSize,alloc,taskmap,messageIter,messageSize,expIter,time]
-                elif mode == 'randomSized':
-                    df.loc[len(df),:] = [mode,machine,utilization,traceNum,app,taskmap,alloc,alpha,expIter,time]
+                elif mode == 'hybrid':
+                    df.loc[len(df),:] = [groupNum,routersPerGroup,nodesPerRouter,utilization,application,messageSize,messageIter,
+                            traceMode,traceNum,allocation,taskmapping,scheduler,routersPerGroup,alpha,expIter,time]
     return df
 
 def read(file, readmode, mode, parameters=0):
@@ -85,7 +89,7 @@ def read(file, readmode, mode, parameters=0):
     '''
     infile = open(file, 'r')
     find = 0
-    
+
     if readmode == 'last':# the finish time of the last job.
         for line in infile:
             if line.startswith('Job Finished:'):# Job Finished: JobNum:0 Time:32101 us.
@@ -395,8 +399,8 @@ def bestAlloc(mainFolderName):
 
 #================================
 # main function starts.
-df = inspect('randomSized')
-df.to_csv('randomSized.csv', index=False)
+df = inspect('hybrid')
+df.to_csv('hybrid.csv', index=False)
 #readBaseline('Baseline_R4G17')
 #bestBase('Baseline_R4G17')
 #readHybrid('Hybrid_R4G17')
