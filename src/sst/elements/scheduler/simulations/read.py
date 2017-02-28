@@ -6,7 +6,10 @@ read baseline and hybrid simulation results and process them.
 used to read the 128 shuffle and find out how many shuffle is good enough and showing a normal distribution.
 
 run by:
-./read.py
+./read.py empty
+./read.py analyzeEmpty
+./read.py hybrid
+./read.py draw
 
 ### TODO ###
 
@@ -17,13 +20,8 @@ run by:
 """
 import sys
 #=========================
-#if sys.platform == 'win32':
-#    folder = 'B128_R4G17_alltoall_6_minimal'
-#elif sys.platform.startswith('linux'):
-#    folder = sys.argv[1]# cannot include / at the end.
-#mainFolderName = 'Hybrid_R4G17'
-alphaRange = [0.5, 1.0, 2.0, 4.0]
-mode = 'hybrid'
+mode = sys.argv[1]
+
 #=========================
 import datetime
 now = datetime.datetime.now()
@@ -35,9 +33,125 @@ if sys.platform == 'win32':
 else:
     sys.path.insert(0, '/mnt/nokrb/zhangyj/monitoring')
 import tools
-    
 
-def inspect(path):
+if mode == 'hybrid':
+    dfEmpty = pd.read_csv('empty.csv')
+
+def main():
+    if mode == 'hybrid':
+        df = inspect('hybrid', mode)
+        df.to_csv('hybrid.csv', index=False)
+
+    elif mode == 'empty':
+        df = inspect('empty', mode)
+        df.to_csv('emptyRaw.csv', index=False)
+
+    elif mode == 'analyzeEmpty':
+        df = pd.read_csv('emptyRaw.csv')
+        dfMin = emptyMin(df)
+        dfMin.to_csv('empty.csv', index=False)
+
+    elif mode == 'readSize':
+        df = inspect('hybrid', mode)
+        outname = 'allsize.txt'
+        out = open('%s' % outname, 'w')
+        for iSize in df:
+            out.write('%d\n' % iSize)
+        out.close()
+
+    elif mode == 'draw':
+        df = pd.read_csv('hybrid.csv')
+        draw(df, groupNum=17, routersPerGroup=4, nodesPerRouter=4, utilization=75, application='alltoall', messageSize=100000, messageIter=2, 
+                traceMode='corner', scheduler='easy', routing='adaptive', alpha=1)
+
+    #readBaseline('Baseline_R4G17')
+    #bestBase('Baseline_R4G17')
+    #readHybrid('Hybrid_R4G17')
+    #bestAlloc('Hybrid_R4G17')
+
+    #fileIterSize('sizeIter')
+    #fileUncertainty('iterUncertainty')
+
+    # generate the files for matlab 3d ploting.
+    #usefulCol = ['messageIter','messageSize','time(us)']
+    #for selAlpha in [0.5]:#alphaRange:
+    #    dfMatlab = df[df['alpha']==selAlpha].loc[:, usefulCol]
+    #    dfMatlab.to_csv('%s/%s_matlab_%.1f.csv' % (mainFolderName, folder, selAlpha), index=False)
+    print('finished in %d seconds.' % (datetime.datetime.now()-now).seconds)
+
+def draw(df, groupNum, routersPerGroup, nodesPerRouter, utilization, application, messageSize, messageIter, traceMode, scheduler, routing, alpha):
+    import matplotlib.pyplot as plt
+    dfThis = df[
+                (df['groupNum']==groupNum)
+                & (df['routersPerGroup']==routersPerGroup)
+                & (df['nodesPerRouter']==nodesPerRouter)
+                & (df['utilization']==utilization)
+                & (df['application']==application)
+                & (df['messageSize']==messageSize)
+                & (df['messageIter']==messageIter)
+                & (df['traceMode']==traceMode)
+                & (df['scheduler']==scheduler)
+                & (df['routing']==routing)
+                & (df['alpha']==alpha)
+                ]
+    allocations = set(dfThis['allocation'])
+    traceNums = set(dfThis['traceNum'])
+
+    # get the ANL for every repeated case.
+    dfAvg = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
+        'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','avg.ANL'])
+    for traceNum in traceNums:
+        for allocation in allocations:
+            dfOneCase = dfThis[
+                                (dfThis['traceNum']==traceNum)
+                                & (dfThis['allocation']==allocation)
+                                ]
+            avg = dfOneCase['Avg.Norm.Latency'].mean()
+            dfAvg.loc[len(dfAvg),:] = [groupNum,routersPerGroup,nodesPerRouter,utilization,application,messageSize,messageIter,
+                    traceMode,traceNum,allocation,'all',scheduler,routing,alpha,'all',avg]
+
+    dfAvg.to_csv('test.csv',index=False)
+    dfAvg['avg.ANL'].plot(kind='bar',title='title',figsize=(20,15),legend=True)
+    plt.savefig('test.png')
+
+def emptyMin(df):
+    dfMin = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
+        'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','time(us)'])
+    groupNums = set(df['groupNum'])
+    routersPerGroups = set(df['routersPerGroup'])
+    nodesPerRouters = set(df['nodesPerRouter'])
+    applications = set(df['application'])
+    messageSizes = set(df['messageSize'])
+    messageIters = set(df['messageIter'])
+    sizes = set(df['traceNum'])
+    routings = set(df['routing'])
+    alphas = set(df['alpha'])
+    for groupNum in groupNums:
+        for routersPerGroup in routersPerGroups:
+            for nodesPerRouter in nodesPerRouters:
+                for application in applications:
+                    for messageSize in messageSizes:
+                        for messageIter in messageIters:
+                            for size in sizes:
+                                for routing in routings:
+                                    for alpha in alphas:
+                                        dfOneCase = df[
+                                                        (df['groupNum']==groupNum)
+                                                        & (df['routersPerGroup']==routersPerGroup)
+                                                        & (df['nodesPerRouter']==nodesPerRouter)
+                                                        & (df['application']==application)
+                                                        & (df['messageSize']==messageSize)
+                                                        & (df['messageIter']==messageIter)
+                                                        & (df['traceNum']==size)
+                                                        & (df['routing']==routing)
+                                                        & (df['alpha']==alpha)
+                                                        ]
+                                        timeMin = dfOneCase['time(us)'].min()
+                                        dfMin.loc[len(dfMin),:] = [groupNum,routersPerGroup,nodesPerRouter,'all',application,messageSize,messageIter,
+                                                'analyzeEmpty',size,'all','all','all',routing,alpha,'all',timeMin]
+    return dfMin
+
+def inspect(path, mode):
     '''
     get a table with results from all experiments.
     '''
@@ -45,7 +159,14 @@ def inspect(path):
     print('reading %s...' % path)
     fileList = tools.getfiles(path)
     if mode == 'hybrid':
-        df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter','traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','time(us)'])
+        df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
+            'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','Avg.Norm.Latency'])
+    elif mode == 'empty':
+        df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
+            'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','time(us)'])
+    elif mode == 'readSize':
+        df = set()
+
     for file in fileList:
         split = file.split('\\') if sys.platform == 'win32' else file.split('/')
         fname = split[-1]
@@ -70,19 +191,34 @@ def inspect(path):
             alpha = float(paraSplit[11].split('alpha')[1])
             expIter = int(paraSplit[12].split('expIter')[1])
             # read file.
-            if mode == 'Baseline':
-                (time, find) = read(file, 'last', mode)
+            if mode == 'empty':
+                (time, find) = read(file, 'last')
             elif mode == 'hybrid':
-                (time, find) = read(file, 'complete', mode)
+                parameters = {}
+                parameters['groupNum'] = groupNum
+                parameters['routersPerGroup'] = routersPerGroup
+                parameters['nodesPerRouter'] = nodesPerRouter
+                parameters['application'] = application
+                parameters['messageSize'] = messageSize
+                parameters['messageIter'] = messageIter
+                parameters['routing'] = routing
+                parameters['alpha'] = alpha
+                (time, find) = read(file, 'ANL', parameters)
+            elif mode == 'readSize':
+                (oneFileSet, find) = read(file, 'readSize')
+
             if find == 1:# if find == 0 so simulation didn't complete, no records in the df.
-                if mode == 'Baseline':
-                    df.loc[len(df),:] = [mode,machine,alpha,routing,app,appSize,alloc,taskmap,messageIter,messageSize,expIter,time]
-                elif mode == 'hybrid':
+                if mode == 'hybrid' or mode == 'empty':
                     df.loc[len(df),:] = [groupNum,routersPerGroup,nodesPerRouter,utilization,application,messageSize,messageIter,
-                            traceMode,traceNum,allocation,taskmapping,scheduler,routersPerGroup,alpha,expIter,time]
+                            traceMode,traceNum,allocation,taskmapping,scheduler,routing,alpha,expIter,time]
+                elif mode == 'readSize':
+                    for iSize in oneFileSet:
+                        df.add(iSize)
+            elif find == 0:
+                print('incomplete file: %s' % para)
     return df
 
-def read(file, readmode, mode, parameters=0):
+def read(file, readmode, parameters=0):
     '''
     read the finish time of one ember.out file.
     find: the finish line exists.
@@ -92,15 +228,25 @@ def read(file, readmode, mode, parameters=0):
 
     if readmode == 'last':# the finish time of the last job.
         for line in infile:
-            if line.startswith('Job Finished:'):# Job Finished: JobNum:0 Time:32101 us.
-                find = 1
-                string = line.split(':')[3].split(' ')# 32101 us
+            if line.startswith('Job Finished:'):
+                string = line.split(':')[4].split(' ')# 32101 us
                 number = float(string[0])
                 unit   = string[1].split('\n')[0]
                 time = convertToMicro(number, unit)
+            if line.startswith('Simulation is complete'):# make sure the simulation is complete.
+                find = 1
         if find == 0:# no this line.
             time = 0
-            print(file)
+
+    elif readmode == 'readSize':
+        sizes = set()
+        for line in infile:
+            if line.startswith('Job Finished:'):
+                size = int( line.split(':')[3].split(' ')[0] )
+                sizes.add(size)
+            if line.startswith('Simulation is complete'):# make sure the simulation is complete.
+                find = 1
+        time = sizes# to return the set of jobsizes.
 
     elif readmode == 'complete':# the simulation time.
         for line in infile:
@@ -112,7 +258,6 @@ def read(file, readmode, mode, parameters=0):
                 time = convertToMicro(number, unit)
         if find == 0:# no this line.
             time = 0
-            print(file)
 
     elif readmode == 'sumAll':
         times = []
@@ -128,48 +273,38 @@ def read(file, readmode, mode, parameters=0):
                 find = 1
         if find == 0:# no this line.
             time = 0
-            print(file)
         else:
             time = sum(times)
 
-    elif readmode == 'normalizedAvg':
-        timesSmall = []
-        timesLarge = []
+    elif readmode == 'ANL':
+        NL = []
         for line in infile:
-            if line.startswith('Job Finished:'):# Job Finished: JobNum:0 Time:32101 us.
-                JobNum = int(line.split(':')[2].split(' ')[0])
-                string = line.split(':')[3].split(' ')# 32101 us
+            if line.startswith('Job Finished:'):# Job Finished: JobNum:2 NodeNum:99 Time:303478 us
+                size = int(line.split(':')[3].split(' ')[0])# 99
+                string = line.split(':')[4].split(' ')# [303478, 'us\n']
                 number = float(string[0])
                 unit   = string[1].split('\n')[0]
                 oneTime = convertToMicro(number, unit)
-                if JobNum < parameters[0]:
-                    timesSmall.append(oneTime)
-                else:
-                    timesLarge.append(oneTime)
+                emptyTime = dfEmpty[
+                                    (dfEmpty['groupNum']==parameters['groupNum'])
+                                    & (dfEmpty['nodesPerRouter']==parameters['nodesPerRouter'])
+                                    & (dfEmpty['routersPerGroup']==parameters['routersPerGroup'])
+                                    & (dfEmpty['application']==parameters['application'])
+                                    & (dfEmpty['messageSize']==parameters['messageSize'])
+                                    & (dfEmpty['messageIter']==parameters['messageIter'])
+                                    & (dfEmpty['traceNum']==size)
+                                    & (dfEmpty['routing']==parameters['routing'])
+                                    & (dfEmpty['alpha']==parameters['alpha'])
+                                    ].iloc[0]['time(us)']
+                normalizedTime = oneTime / emptyTime
+                NL.append(normalizedTime)
             if line.startswith('Simulation is complete'):# make sure the simulation is complete.
                 find = 1
         if find == 0:# no this line.
             time = 0
-            print(file)
         else:
-            # normalized time.
-            sSize = parameters[1]
-            lSize = parameters[3]
-            baseDF = parameters[4]# this is the baseline results dataframe.
-            routing = parameters[5]
-            alpha = parameters[6]
-            # for useGlobalMin.
-            #normSmall = min( baseDF[ baseDF['appSize']==sSize ]['minTime'] )
-            #normLarge = min( baseDF[ baseDF['appSize']==lSize ]['minTime'] )
-            normSmall = baseDF[ (baseDF['appSize']==sSize) & (baseDF['routing']==routing) & (baseDF['alpha']==alpha) ].iloc[0]['minTime']
-            normLarge = baseDF[ (baseDF['appSize']==lSize) & (baseDF['routing']==routing) & (baseDF['alpha']==alpha) ].iloc[0]['minTime']
-            time = ( sum(timesSmall)/normSmall + sum(timesLarge)/normLarge )/( len(timesSmall) + len(timesLarge) )
-            #print(file)
-            #print(normSmall)
-            #print(normLarge)
-            #print(time)
-            #sys.exit(0)
-
+            ANL = sum(NL) / len(NL)
+            time = ANL
     infile.close()
     return (time, find)
 
@@ -397,24 +532,5 @@ def bestAlloc(mainFolderName):
     piv.sort_index(axis=0, level='largeNum', ascending=True, inplace=True)
     piv.to_csv('%s/Hybrid_bestAlloc.csv' % (mainFolderName) )
 
-#================================
-# main function starts.
-df = inspect('hybrid')
-df.to_csv('hybrid.csv', index=False)
-#readBaseline('Baseline_R4G17')
-#bestBase('Baseline_R4G17')
-#readHybrid('Hybrid_R4G17')
-#bestAlloc('Hybrid_R4G17')
-
-#fileIterSize('sizeIter')
-#fileUncertainty('iterUncertainty')
-
-# generate the files for matlab 3d ploting.
-#usefulCol = ['messageIter','messageSize','time(us)']
-#for selAlpha in [0.5]:#alphaRange:
-#    dfMatlab = df[df['alpha']==selAlpha].loc[:, usefulCol]
-#    dfMatlab.to_csv('%s/%s_matlab_%.1f.csv' % (mainFolderName, folder, selAlpha), index=False)
-
-
-print('finished in %d seconds.' % (datetime.datetime.now()-now).seconds)
-
+if __name__ == '__main__':
+    main()

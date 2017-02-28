@@ -5,9 +5,12 @@ Description : Run a batch of sst jobs.
 
 run by:
     ./run.py gen
+    ./run.py empty
     ./run.py run -f
 
 ### TODO ###
+run stencil jobs.
+analyze results and draw graphs.
 
 ### CANDO ###
 
@@ -36,11 +39,11 @@ if useMoreMemory:
 mode = sys.argv[1]# gen, empty, run.
 emberSimulation = True
 
-groupNums = [17]
+groupNums = [17]#[9, 33]
 routersPerGroups = [4]
 nodeOneRouters = [4]
-alphas = [1]#[0.25, 0.5, 1, 2, 4]# print as %.2f number.
-utilizations = [75]#[50, 75, 100]
+alphas = [1]#[0.25, 0.5, 2, 4]# print as %.2f number.
+utilizations = [75]#[50, 100]
 
 allocations = ['random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
 mappers = ['topo'] # if want to change this, need to change the sst input file.
@@ -50,32 +53,16 @@ applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
 messageSizes = [10**5]#[10**x for x in range(1,8)]
 messageIters = [2]#[2**x for x in range(4)]
 
-traceModes = ['corner']
 sizeMax = 32 # possible largest number of nodes of one job.
-expIters = 1
-
-if mode == 'baseline':# single job in an empty machine.
-    sNum = 8
-    sSize = int(sys.argv[1])
-    lNum = 0
-    lSize = 2
-
-    hString = 'Baseline_R%dG%d_%s_%d' % (routersPerGroup, groupNum, applications[0], sSize)# routing is included later.
-    pyfileName = hString + '.py'
-    simfileName = hString + '.sim'
-    graphfileNames = [hString + '.mtx']
-    phasefileNames = [hString + '.phase']
-
-    allocStrategy = ['spread']#['simple', 'spread', 'random']#['simple', 'simpleHeadEnd', 'spreadLimited']
-    iterRandom = 1
-    iterNotRandom = 1
-
+expIters = 20
+if mode == 'run':
+    traceModes = ['corner']# corner, random, empty.
+elif mode == 'empty':
+    traceModes = ['empty']# corner, random, empty.
 
 #====================================
 
 useUnstrMotif = False# not recommended.
-
-#shuffle = True# shuffle the node list in myloadfile.
 
 import os, sys
 from optparse import OptionParser
@@ -97,78 +84,72 @@ def main():
     options.main_sim_path = main_sim_path
     options.env_script = env_script
 
-    if mode == 'baseline':
-        generateSimfile(simfileName, graphfileNames , phasefileNames, 1000)
-        generatePhasefile(graphfileNames[0], phasefileNames[0])
-        generateGraphfile(graphfileNames[0], sSize)
-        generatePyfile(simfileName, 'libtopomap', pyfileName, dflyArgv, 'simple')
-        for strategy in allocStrategy:
-            if strategy == 'random' or strategy == 'spreadRandom':
-                num_iters = iterRandom
-            else:
-                num_iters = iterNotRandom
-            for alpha in alphaRange:
-                for messageIter in messageIters:
-                    for messageSize in messageSizes:
-                        for iteration in range(num_iters):
-                            options.alpha = alpha
-                            options.application = applications[0]
-                            options.mapper = 'libtopomap'
-                            options.iteration = iteration
-                            options.routing = 'minimal'
-                            submit_job(options, strategy, messageIter, messageSize)
-
-    elif mode == 'gen':
-        print('to do')
-
-    elif mode == 'run':
+    if mode == 'run':
         options.exp_folder = 'hybrid'
-        for groupNum in groupNums:
-            for routersPerGroup in routersPerGroups:
-                for nodeOneRouter in nodeOneRouters:
-                    nodeInGroup = routersPerGroup * nodeOneRouter
-                    # hosts_per_router, routers_per_group, intergroup_per_router, num_groups.
-                    options.dflyShape = '%d:%d:%d:%d' % (nodeOneRouter, routersPerGroup, 1, groupNum)# input into ember.
-                    opticalsPerRouter = int( (groupNum - 1) / routersPerGroup )
-                    # routersPerGroup, portsPerRouter, opticalsPerRouter, nodesPerRouter.
-                    dflyArgv = '%d,%d,%d,%d' % (routersPerGroup, nodeOneRouter + routersPerGroup - 1 + opticalsPerRouter, opticalsPerRouter, nodeOneRouter)# input into scheduler.
-                    for utilization in utilizations:
-                        nodesToAlloc = int(nodeInGroup * groupNum * utilization/100)
-                        for messageSize in messageSizes:
-                            for messageIter in messageIters:
-                                for application in applications:
-                                    if application == 'alltoall':
-                                        phasefileName = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, messageIter)
-                                        generatePhasefile(phasefileName, messageSize, messageIter)
-                                    for traceMode in traceModes:
-                                        traceNums = 8 if traceMode == 'corner' else 100
-                                        for traceNum in range(1, traceNums + 1):
-                                            # trace numbers start from 1.
-                                            name1 = 'G%dR%dN%d_uti%d_%s_mesSize%d_mesIter%d_%s_%d' % (groupNum, routersPerGroup, nodeOneRouter, 
-                                                    utilization, application, messageSize, messageIter, traceMode, traceNum)
-                                            simfileName = name1 + '.sim'
-                                            generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, 'corner', traceNum, 
-                                                    graphName='empty', phaseName=phasefileName, runtime=1000, sizeMax=sizeMax)
-                                            for allocator in allocations:
-                                                for mapper in mappers:
-                                                    for scheduler in schedulers:
-                                                        name2 = '_%s_%s_%s' % (allocator, mapper, scheduler)
-                                                        options.sstInputName = name1 + name2 + '.py'
-                                                        generatePyfile(options.sstInputName, simfileName, application, mapper, dflyArgv, allocator)
-                                                        for rout in routings:
-                                                            routName = 'adaptive' if rout == 'adaptive_local' else rout
-                                                            for alpha in alphas:
-                                                                for expIter in range(expIters):
-                                                                    name3 = '_%s_alpha%.2f_expIter%d' % (routName, alpha, expIter)
-                                                                    options.exp_name = name1 + name2 + name3
-                                                                    options.alpha = alpha
-                                                                    options.routing = rout
-                                                                    submit_job(options)
+    elif mode == 'empty':
+        options.exp_folder = 'empty'
 
-    else:
-        print('mode not valid')
+    for groupNum in groupNums:
+        for routersPerGroup in routersPerGroups:
+            for nodeOneRouter in nodeOneRouters:
+
+                nodeInGroup = routersPerGroup * nodeOneRouter
+                # hosts_per_router, routers_per_group, intergroup_per_router, num_groups.
+                options.dflyShape = '%d:%d:%d:%d' % (nodeOneRouter, routersPerGroup, 1, groupNum)# input into ember.
+                opticalsPerRouter = int( (groupNum - 1) / routersPerGroup )
+                # routersPerGroup, portsPerRouter, opticalsPerRouter, nodesPerRouter.
+                dflyArgv = '%d,%d,%d,%d' % (routersPerGroup, nodeOneRouter + routersPerGroup - 1 + opticalsPerRouter, opticalsPerRouter, nodeOneRouter)# input into scheduler.
+
+                for utilization in utilizations:
+                    nodesToAlloc = int(nodeInGroup * groupNum * utilization/100)
+                    for messageSize in messageSizes:
+                        for messageIter in messageIters:
+                            for application in applications:
+                                if application == 'alltoall':
+                                    phasefileName = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, messageIter)
+                                    generatePhasefile(phasefileName, messageSize, messageIter)
+                                for traceMode in traceModes:
+                                    if traceMode == 'corner':
+                                        traceNum = 8
+                                        traceNumSet = range(1, traceNums + 1)
+                                    elif traceMode == 'random':
+                                        traceNum = 50
+                                        traceNumSet = range(1, traceNums + 1)
+                                    elif traceMode == 'empty':
+                                        traceNumSet = readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application)
+
+                                    for traceNum in traceNumSet:
+                                        # trace numbers start from 1.
+                                        name1 = 'G%dR%dN%d_uti%d_%s_mesSize%d_mesIter%d_%s_%d' % (groupNum, routersPerGroup, nodeOneRouter, 
+                                                utilization, application, messageSize, messageIter, traceMode, traceNum)
+                                        simfileName = name1 + '.sim'
+                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, traceMode, traceNum, 
+                                                graphName='empty', phaseName=phasefileName, runtime=1000, sizeMax=sizeMax)
+                                        for allocator in allocations:
+                                            for mapper in mappers:
+                                                for scheduler in schedulers:
+                                                    name2 = '_%s_%s_%s' % (allocator, mapper, scheduler)
+                                                    options.sstInputName = name1 + name2 + '.py'
+                                                    generatePyfile(options.sstInputName, simfileName, application, mapper, dflyArgv, allocator)
+                                                    for rout in routings:
+                                                        routName = 'adaptive' if rout == 'adaptive_local' else rout
+                                                        for alpha in alphas:
+                                                            for expIter in range(expIters):
+                                                                name3 = '_%s_alpha%.2f_expIter%d' % (routName, alpha, expIter)
+                                                                options.exp_name = name1 + name2 + name3
+                                                                options.alpha = alpha
+                                                                options.routing = rout
+                                                                submit_job(options)
+
 
 #----- main end -----#
+
+def readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application):
+    sizeFile = open('allsize.txt','r')
+    sizes = []
+    for line in sizeFile:
+        sizes.append( int(line) )
+    return sizes
 
 def generateMyLoadfile(options, graphName, strategy, messageIter, messageSize):
     '''
@@ -491,30 +472,18 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, trace
     generate the .sim files in the jobtrace_file folder.
 
     traceMode = 'corner' generate corner cases.
+                'empty' generate empty machine traces.
     runtime is an int in microseconds setting the assumed running time of a job.
     sizeMax is the max node number possible in random mode.
     '''
     import random
     tempname = 'jobtrace_files/' + simName
     simfile = open(tempname, 'w')
-    if traceMode == 'baseline':
-        # for small job.
-        score = int(sSize * nodeInGroup * 2) # small_core.
-        if useUnstrMotif == True:
-            simLine = '0 %d %d -1 comm\tgraph_files/%s\tphase phase_files/%s\n' % (score, runtime, graphName[0], phaseName[0])
-        else:
-            simLine = '0 %d %d -1 phase phase_files/%s\n' % (score, runtime, phaseName[0])
-        for iN in range(sNum):
-            simfile.write(simLine)
-        # for large jobs.
-        lcore = int(lSize * nodeInGroup * 2)
-        if lNum != 0:
-            if useUnstrMotif == True:
-                simLine = '0 %d %d -1 comm\tgraph_files/%s\tphase phase_files/%s\n' % (lcore, runtime, graphName[1], phaseName[1])
-            else:
-                simLine = '0 %d %d -1 phase phase_files/%s\n' % (lcore, runtime, phaseName[1])
-        for iN in range(lNum):
-            simfile.write(simLine)
+    if traceMode == 'empty':
+        node = traceNum
+        core = node * 2
+        simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+        simfile.write(simLine)
 
     elif traceMode == 'corner':
         # some corner cases.
@@ -678,11 +647,7 @@ def submit_job(options):
 
     #Check name only
     if options.check:
-        print(options.outdir)
-        print(execcommand)
-        print(shfile)
-        print(outfile)
-        print
+        print(options.exp_name)
     #Launch the experiment
     else:
         if os.path.exists(options.outdir) == 1:
