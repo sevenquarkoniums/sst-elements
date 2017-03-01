@@ -10,7 +10,6 @@ run by:
 
 ### TODO ###
 run stencil jobs.
-analyze results and draw graphs.
 
 ### CANDO ###
 
@@ -50,8 +49,8 @@ mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
 applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
-messageSizes = [10**5]#[10**x for x in range(1,8)]
-messageIters = [2]#[2**x for x in range(4)]
+messageSizes = [10**5]#[10**x for x in range(6,9)]
+messageIters = [1]#[2**x for x in range(10)]
 
 sizeMax = 32 # possible largest number of nodes of one job.
 expIters = 20
@@ -110,11 +109,11 @@ def main():
                                     generatePhasefile(phasefileName, messageSize, messageIter)
                                 for traceMode in traceModes:
                                     if traceMode == 'corner':
-                                        traceNum = 8
-                                        traceNumSet = range(1, traceNums + 1)
+                                        traceNum = 7
+                                        traceNumSet = range(1, traceNum + 1)
                                     elif traceMode == 'random':
-                                        traceNum = 50
-                                        traceNumSet = range(1, traceNums + 1)
+                                        traceNum = 10
+                                        traceNumSet = range(1, traceNum + 1)
                                     elif traceMode == 'empty':
                                         traceNumSet = readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application)
 
@@ -123,7 +122,7 @@ def main():
                                         name1 = 'G%dR%dN%d_uti%d_%s_mesSize%d_mesIter%d_%s_%d' % (groupNum, routersPerGroup, nodeOneRouter, 
                                                 utilization, application, messageSize, messageIter, traceMode, traceNum)
                                         simfileName = name1 + '.sim'
-                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, traceMode, traceNum, 
+                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
                                                 graphName='empty', phaseName=phasefileName, runtime=1000, sizeMax=sizeMax)
                                         for allocator in allocations:
                                             for mapper in mappers:
@@ -467,7 +466,7 @@ def generatePyfile(sstInputName, simfileName, application, mapper, dflyArgv, all
 #    snap.close()
 #    print('snapshotParser_sched.py modified.')
 
-def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, traceMode, traceNum, graphName, phaseName, runtime, sizeMax):
+def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, graphName, phaseName, runtime, sizeMax):
     '''
     generate the .sim files in the jobtrace_file folder.
 
@@ -487,69 +486,77 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, trace
 
     elif traceMode == 'corner':
         # some corner cases.
+        #if traceNum == 1:
+        #    node = 2
+        #    core = node * 2
+        #    jobNum = int(nodesToAlloc / node)
+        #    for ijob in range(jobNum):
+        #        simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+        #        simfile.write(simLine)
         if traceNum == 1:
-            node = 2
+            node = nodeOneRouter
             core = node * 2
             jobNum = int(nodesToAlloc / node)
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
         elif traceNum == 2:
-            node = nodeOneRouter
-            core = node * 2
-            jobNum = int(nodesToAlloc / node)
-            for ijob in range(jobNum):
-                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
-                simfile.write(simLine)
-        elif traceNum == 3:
             node = nodeOneRouter * routersPerGroup
             core = node * 2
             jobNum = int(nodesToAlloc / node)
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
-        elif traceNum == 4:
-            node = int(nodesToAlloc / 4) # the case that all jobs are large.
+        elif traceNum == 3:
+            node = 2 * nodeOneRouter * routersPerGroup
             core = node * 2
             jobNum = int(nodesToAlloc / node)
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
+        elif traceNum == 4:
+            node = int(nodeOneRouter * routersPerGroup * groupNum / 2) # the case that all jobs are large.
+            core = node * 2
+            jobNum = int(nodesToAlloc / node)
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        #elif traceNum == 5:
+        #    node = nodeOneRouter
+        #    core = node * 2
+        #    jobNum = int( ( nodesToAlloc - int(nodesToAlloc / 4) ) / 2 )
+        #    for ijob in range(jobNum):
+        #        simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+        #        simfile.write(simLine)
+        #    node = int(nodesToAlloc / 4)
+        #    core = node * 2
+        #    simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+        #    simfile.write(simLine)
         elif traceNum == 5:
-            node = nodeOneRouter
-            core = node * 2
-            jobNum = int( ( nodesToAlloc - int(nodesToAlloc / 4) ) / 2 )
-            for ijob in range(jobNum):
-                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
-                simfile.write(simLine)
-
-            node = int(nodesToAlloc / 4)
-            core = node * 2
-            simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
-            simfile.write(simLine)
-        elif traceNum == 6:
-            node = nodeOneRouter
-            core = node * 2
-            simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
-            simfile.write(simLine)
-
-            node = int(nodesToAlloc / 4)
-            core = node * 2
-            jobNum = int( ( nodesToAlloc - nodeOneRouter ) / node )
-            for ijob in range(jobNum):
-                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
-                simfile.write(simLine)
-        elif traceNum == 7:
             node = nodeOneRouter + 1
             core = node * 2
             jobNum = int(nodesToAlloc / node)
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
-        elif traceNum == 8:
+        elif traceNum == 6:
             node = nodeOneRouter * routersPerGroup + 1
             core = node * 2
             jobNum = int(nodesToAlloc / node)
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 7:
+            # large ones.
+            node = 2 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones.
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 4 * nodeOneRouter * routersPerGroup ) / node )
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
@@ -655,8 +662,8 @@ def submit_job(options):
                 print("Clobbering %s... used -f flag" %(options.exp_name[:7]))
                 run("rm -rf " + options.outdir)
             else:
-                print("Experiment %s... exists. quitting. use -f to force" %(options.exp_name[:7]))
-                sys.exit(1)
+                print("Experiment %s... exists. not submitting. use -f to force" %(options.exp_name[:7]))
+                return 1
         run("mkdir -p " + options.outdir)
 
         shellfile = open(shfile, "w")
@@ -674,6 +681,7 @@ def submit_job(options):
             cmd = cmd1 + cmd2 + '-cwd -o %s -j y %s' % (outfile, shfile)
             # -j y: merge error to output. -S: specify the shell.
         run(cmd)
+    return 0
 
 if __name__ == '__main__':
     main()

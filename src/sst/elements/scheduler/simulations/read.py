@@ -6,6 +6,7 @@ read baseline and hybrid simulation results and process them.
 used to read the 128 shuffle and find out how many shuffle is good enough and showing a normal distribution.
 
 run by:
+./read.py readSize
 ./read.py empty
 ./read.py analyzeEmpty
 ./read.py hybrid
@@ -21,7 +22,6 @@ run by:
 import sys
 #=========================
 mode = sys.argv[1]
-
 #=========================
 import datetime
 now = datetime.datetime.now()
@@ -156,8 +156,9 @@ def inspect(path, mode):
     get a table with results from all experiments.
     '''
     import pandas as pd
-    print('reading %s...' % path)
+    print('getting fileList...')
     fileList = tools.getfiles(path)
+    print('reading %s...' % path)
     if mode == 'hybrid':
         df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
             'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','Avg.Norm.Latency'])
@@ -203,7 +204,7 @@ def inspect(path, mode):
                 parameters['messageIter'] = messageIter
                 parameters['routing'] = routing
                 parameters['alpha'] = alpha
-                (time, find) = read(file, 'ANL', parameters)
+                (time, find) = read(file, 'last', parameters)
             elif mode == 'readSize':
                 (oneFileSet, find) = read(file, 'readSize')
 
