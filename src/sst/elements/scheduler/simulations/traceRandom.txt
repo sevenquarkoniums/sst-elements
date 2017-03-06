@@ -1,0 +1,105 @@
+Action : Launching experiment
+phasefile alltoall_mesSize100000_mesIter1.phase generated.
+Job 1 size: 2 nodes
+Job 2 size: 32 nodes
+Job 3 size: 64 nodes
+Job 4 size: 4 nodes
+Job 5 size: 8 nodes
+Job 6 size: 32 nodes
+Job 7 size: 2 nodes
+Job 8 size: 8 nodes
+Job 9 size: 16 nodes
+Job 10 size: 16 nodes
+Job 11 size: 2 nodes
+Job 12 size: 8 nodes
+Job 13 size: 2 nodes
+Job 14 size: 8 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_1.sim generated.
+Job 1 size: 16 nodes
+Job 2 size: 8 nodes
+Job 3 size: 2 nodes
+Job 4 size: 128 nodes
+Job 5 size: 8 nodes
+Job 6 size: 16 nodes
+Job 7 size: 4 nodes
+Job 8 size: 16 nodes
+Job 9 size: 2 nodes
+Job 10 size: 2 nodes
+Job 11 size: 2 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_2.sim generated.
+Job 1 size: 32 nodes
+Job 2 size: 128 nodes
+Job 3 size: 4 nodes
+Job 4 size: 8 nodes
+Job 5 size: 32 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_3.sim generated.
+Job 1 size: 2 nodes
+Job 2 size: 2 nodes
+Job 3 size: 32 nodes
+Job 4 size: 16 nodes
+Job 5 size: 64 nodes
+Job 6 size: 64 nodes
+Job 7 size: 8 nodes
+Job 8 size: 2 nodes
+Job 9 size: 4 nodes
+Job 10 size: 8 nodes
+Job 11 size: 2 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_4.sim generated.
+Job 1 size: 128 nodes
+Job 2 size: 32 nodes
+Job 3 size: 4 nodes
+Job 4 size: 32 nodes
+Job 5 size: 8 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_5.sim generated.
+Job 1 size: 2 nodes
+Job 2 size: 64 nodes
+Job 3 size: 32 nodes
+Job 4 size: 8 nodes
+Job 5 size: 64 nodes
+Job 6 size: 16 nodes
+Job 7 size: 4 nodes
+Job 8 size: 8 nodes
+Job 9 size: 4 nodes
+Job 10 size: 2 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_6.sim generated.
+Job 1 size: 16 nodes
+Job 2 size: 16 nodes
+Job 3 size: 2 nodes
+Job 4 size: 128 nodes
+Job 5 size: 8 nodes
+Job 6 size: 2 nodes
+Job 7 size: 4 nodes
+Job 8 size: 2 nodes
+Job 9 size: 4 nodes
+Job 10 size: 8 nodes
+Job 11 size: 4 nodes
+Job 12 size: 4 nodes
+Job 13 size: 2 nodes
+Job 14 size: 2 nodes
+Job 15 size: 2 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_7.sim generated.
+Job 1 size: 128 nodes
+Job 2 size: 32 nodes
+Job 3 size: 4 nodes
+Job 4 size: 4 nodes
+Job 5 size: 16 nodes
+Job 6 size: 4 nodes
+Job 7 size: 2 nodes
+Job 8 size: 8 nodes
+Job 9 size: 4 nodes
+Job 10 size: 2 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_8.sim generated.
+Job 1 size: 64 nodes
+Job 2 size: 128 nodes
+Job 3 size: 2 nodes
+Job 4 size: 8 nodes
+Job 5 size: 2 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_9.sim generated.
+Job 1 size: 64 nodes
+Job 2 size: 64 nodes
+Job 3 size: 32 nodes
+Job 4 size: 8 nodes
+Job 5 size: 16 nodes
+Job 6 size: 16 nodes
+Job 7 size: 4 nodes
+tracefile G17R4N4_uti75_alltoall_mesSize100000_mesIter1_random_10.sim generated.

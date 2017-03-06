@@ -6,10 +6,9 @@ Description : Run a batch of sst jobs.
 run by:
     ./run.py gen
     ./run.py empty
-    ./run.py run -f
+    ./run.py run
 
 ### TODO ###
-run stencil jobs.
 
 ### CANDO ###
 
@@ -44,20 +43,21 @@ nodeOneRouters = [4]
 alphas = [1]#[0.25, 0.5, 2, 4]# print as %.2f number.
 utilizations = [75]#[50, 100]
 
-allocations = ['random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
+allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['alltoall'] #['alltoall', 'bisection', 'mesh']
-messageSizes = [10**5]#[10**x for x in range(6,9)]
-messageIters = [1]#[2**x for x in range(10)]
+applications = ['stencil']
+messageSizes = [0]#[10**x for x in range(6,9)]
+messageIters = [2]#[2**x for x in range(10)]
 
-sizeMax = 32 # possible largest number of nodes of one job.
 expIters = 20
 if mode == 'run':
     traceModes = ['corner']# corner, random, empty.
 elif mode == 'empty':
     traceModes = ['empty']# corner, random, empty.
+elif mode == 'gen':
+    traceModes = ['random']
 
 #====================================
 
@@ -106,7 +106,10 @@ def main():
                             for application in applications:
                                 if application == 'alltoall':
                                     phasefileName = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, messageIter)
-                                    generatePhasefile(phasefileName, messageSize, messageIter)
+                                    generatePhasefile(phasefileName, 'alltoall', messageSize, messageIter)
+                                elif application == 'stencil':
+                                    phasefileName = '%s_mesIter%d.phase' % (application, messageIter)
+                                    generatePhasefile(phasefileName, 'halo3d', messageSize, messageIter)
                                 for traceMode in traceModes:
                                     if traceMode == 'corner':
                                         traceNum = 7
@@ -122,8 +125,11 @@ def main():
                                         name1 = 'G%dR%dN%d_uti%d_%s_mesSize%d_mesIter%d_%s_%d' % (groupNum, routersPerGroup, nodeOneRouter, 
                                                 utilization, application, messageSize, messageIter, traceMode, traceNum)
                                         simfileName = name1 + '.sim'
-                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
-                                                graphName='empty', phaseName=phasefileName, runtime=1000, sizeMax=sizeMax)
+                                        if not(mode == 'run' and traceMode == 'random'):
+                                            generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
+                                                    graphName='empty', phaseName=phasefileName, runtime=1000)
+                                        if mode == 'gen':
+                                            continue
                                         for allocator in allocations:
                                             for mapper in mappers:
                                                 for scheduler in schedulers:
@@ -144,7 +150,7 @@ def main():
 #----- main end -----#
 
 def readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application):
-    sizeFile = open('allsize.txt','r')
+    sizeFile = open('allsize_%s.txt' % application,'r')
     sizes = []
     for line in sizeFile:
         sizes.append( int(line) )
@@ -466,16 +472,18 @@ def generatePyfile(sstInputName, simfileName, application, mapper, dflyArgv, all
 #    snap.close()
 #    print('snapshotParser_sched.py modified.')
 
-def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, graphName, phaseName, runtime, sizeMax):
+def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, graphName, phaseName, runtime):
     '''
     generate the .sim files in the jobtrace_file folder.
 
     traceMode = 'corner' generate corner cases.
                 'empty' generate empty machine traces.
+                'random' generate random cases.
+
     runtime is an int in microseconds setting the assumed running time of a job.
-    sizeMax is the max node number possible in random mode.
     '''
     import random
+    import math
     tempname = 'jobtrace_files/' + simName
     simfile = open(tempname, 'w')
     if traceMode == 'empty':
@@ -562,38 +570,35 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
                 simfile.write(simLine)
 
     elif traceMode == 'random':
-        freeNode = int(nodeInGroup * groupNum * utilization/100)
-        while freeNode != 0:
-            node = random.randint(1, sizeMax)
-            if node <= freeNode:
-                # make a new job.
-                freeNode = freeNode - node
-                print('jobSize: %d nodes' % node)
-                core = node * 2
-                arriveTime = 0
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
-                simfile.write(simLine)
-            else:
-                # make all the freeNode to be a job.
-                node = freeNode
-                freeNode = 0
-                print('jobSize: %d nodes' % node)
-                core = node * 2
-                arriveTime = 0
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
-                simfile.write(simLine)
+        freeNode = nodesToAlloc
+        totalNode = nodeOneRouter * routersPerGroup * groupNum
+        jobID = 1
+        while freeNode > 1:
+            # make a new job.
+            index = int(math.log(min([totalNode/2, freeNode]), 2))
+            node = 2 ** random.randint(1, index)
+            core = node * 2
+            print('Job %d size: %d nodes' % (jobID, node) )
+            arriveTime = 0
+            simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
+            simfile.write(simLine)
+            freeNode = freeNode - node
+            jobID = jobID + 1
 
     simfile.close()
     print('tracefile %s generated.' % simName)
 
-def generatePhasefile(phaseName, messageSize, messageIter, graphName='empty'):
+def generatePhasefile(phaseName, pattern, messageSize=1000, messageIter=1, graphName='empty'):
     tempname = 'phase_files/' + phaseName
     phasefile = open(tempname, 'w')
     phasefile.write('Init\n')
     if useUnstrMotif == True:
         phasefile.write('Unstructured\tgraphfile=graph_files/%s\n' % graphName)
     else:
-        phasefile.write('Alltoall    iterations=%d    bytes=%d\n' % (messageIter, messageSize) )
+        if pattern == 'alltoall':
+            phasefile.write('Alltoall    iterations=%d    bytes=%d\n' % (messageIter, messageSize) )
+        elif pattern == 'halo3d':
+            phasefile.write('Halo3D    doreduce=1    iterations=%d\n' % messageIter)
     phasefile.write('Fini\n')
     phasefile.close()
     print('phasefile %s generated.' % phaseName)

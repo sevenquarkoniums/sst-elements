@@ -147,7 +147,7 @@ bool EmberHalo3DGenerator::generate( std::queue<EmberEvent*>& evQ )
     verbose(CALL_INFO, 1, 0, "loop=%d\n", m_loopIndex );
 
     	//NetworkSim: record motif start time
-    	/*
+        /*
         if ( 0 == m_loopIndex ) {
         	m_startTime = getCurrentSimTimeMicro();
         	//output("Start time:%.3f us\n", (double)m_startTime );
@@ -167,7 +167,7 @@ bool EmberHalo3DGenerator::generate( std::queue<EmberEvent*>& evQ )
     		}//end->NetworkSim
         	return true;
     	}
-    	*/
+        */
         //end->NetworkSim
 
 		enQ_compute( evQ, nsCompute);
@@ -278,8 +278,21 @@ bool EmberHalo3DGenerator::generate( std::queue<EmberEvent*>& evQ )
 			enQ_allreduce( evQ, NULL, NULL, 1, DOUBLE, SUM, GroupWorld);
 		}
 
-	
+	// cannot work.
+    //if ( m_loopIndex == iterations ) {
+    //    if ( 0 == rank() ) {
+    //        output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
+    //        return true;
+    //    }
+    //    else {
+    //        return false;
+    //    }
+    //}
+
     if ( ++m_loopIndex == iterations ) {
+        if ( 0 == rank() ) {
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
+        }
         return true;
     } else {
         return false;

@@ -6,17 +6,16 @@ read baseline and hybrid simulation results and process them.
 used to read the 128 shuffle and find out how many shuffle is good enough and showing a normal distribution.
 
 run by:
-./read.py readSize
+./read.py readSize stencil
 ./read.py empty
 ./read.py analyzeEmpty
 ./read.py hybrid
-./read.py draw
 
 ### TODO ###
 
 
 ### warning ###
-
+hybrid reading changed for stencil only.
 
 """
 import sys
@@ -40,7 +39,7 @@ if mode == 'hybrid':
 def main():
     if mode == 'hybrid':
         df = inspect('hybrid', mode)
-        df.to_csv('hybrid.csv', index=False)
+        df.to_csv('hybrid_stencil.csv', index=False)
 
     elif mode == 'empty':
         df = inspect('empty', mode)
@@ -52,8 +51,9 @@ def main():
         dfMin.to_csv('empty.csv', index=False)
 
     elif mode == 'readSize':
-        df = inspect('hybrid', mode)
-        outname = 'allsize.txt'
+        app = sys.argv[2]
+        df = inspect('hybrid', mode, 'stencil')
+        outname = 'allsize_%s.txt' % app
         out = open('%s' % outname, 'w')
         for iSize in df:
             out.write('%d\n' % iSize)
@@ -151,7 +151,7 @@ def emptyMin(df):
                                                 'analyzeEmpty',size,'all','all','all',routing,alpha,'all',timeMin]
     return dfMin
 
-def inspect(path, mode):
+def inspect(path, mode, app='nan'):
     '''
     get a table with results from all experiments.
     '''
@@ -195,6 +195,8 @@ def inspect(path, mode):
             if mode == 'empty':
                 (time, find) = read(file, 'last')
             elif mode == 'hybrid':
+                if application == 'alltoall':
+                    continue
                 parameters = {}
                 parameters['groupNum'] = groupNum
                 parameters['routersPerGroup'] = routersPerGroup
@@ -204,9 +206,12 @@ def inspect(path, mode):
                 parameters['messageIter'] = messageIter
                 parameters['routing'] = routing
                 parameters['alpha'] = alpha
-                (time, find) = read(file, 'last', parameters)
+                (time, find) = read(file, 'ANL', parameters)
             elif mode == 'readSize':
-                (oneFileSet, find) = read(file, 'readSize')
+                if application == app:
+                    (oneFileSet, find) = read(file, 'readSize')
+                else:
+                    continue
 
             if find == 1:# if find == 0 so simulation didn't complete, no records in the df.
                 if mode == 'hybrid' or mode == 'empty':
@@ -335,7 +340,7 @@ def mean_confidence_interval(data, confidence=0.95):
     m, se = np.mean(a), scipy.stats.sem(a)
     h = se * scipy.stats.t.ppf((1+confidence)/2., n-1)
     return m, m-h, m+h
-    
+
 def checkUncertainty(mode, df, alloc, iteration, outdf, verb, alpha=0.95):
     '''
     # get avg. and estimate the relative error of avg.
