@@ -38,6 +38,8 @@
 #include "allocators/BestFitAllocator.h"
 #include "allocators/ConstraintAllocator.h"
 #include "allocators/DflyHybridAllocator.h"
+#include "allocators/DflyHybridBFAllocator.h"
+#include "allocators/DflyHybridThres2Allocator.h"
 #include "allocators/DflyRDGAllocator.h"
 #include "allocators/DflyRDRAllocator.h"
 #include "allocators/DflyRRNAllocator.h"
@@ -111,6 +113,8 @@ const Factory::allocTableEntry Factory::allocTable[] = {
     {SPECTRALAMAP, "spectralamap"},
     {SIMPLESPREAD, "simplespread"},
     {DFLYHYBRID, "dflyhybrid"},
+    {DFLYHYBRIDBF, "dflyhybridbf"},
+    {DFLYHYBRIDTHRES2, "dflyhybridthres2"},
     {DFLYRDR, "dflyrdr"},
     {DFLYRDG, "dflyrdg"},
     {DFLYRRN, "dflyrrn"},
@@ -506,6 +510,26 @@ Allocator* Factory::getAllocator(SST::Params& params, Machine* m, schedComponent
                     schedout.fatal(CALL_INFO, 1, "Dragonfly Hybrid allocator requires dragonfly machine\n");
                 } else {
                     return new DflyHybridAllocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYHYBRIDBF:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Hybrid (best-fit) allocator requires dragonfly machine\n");
+                } else {
+                    return new DflyHybridBFAllocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYHYBRIDTHRES2:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Hybrid (threshold 2 groups) allocator requires dragonfly machine\n");
+                } else {
+                    return new DflyHybridThres2Allocator(*dMachine);
                 }
                 break;
             }

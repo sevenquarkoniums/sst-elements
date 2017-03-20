@@ -13,17 +13,12 @@ run by:
 ### CANDO ###
 
 ### warning ###
+some corner case.
+change folder.
 
 '''
 import sys
-if sys.platform == 'win32':
-    print('Do not run locally.\n')
-    sys.exit(0)
 #====================================
-#----- folder variables -----#
-main_sim_path = "/mnt/nokrb/zhangyj/SST/scratch/src/sst-elements/src/sst/elements/scheduler/simulations"
-env_script = "/mnt/nokrb/zhangyj/SST/exportSST.sh" # only modifys the environment variables.
-
 #----- queue variables -----#
 qsub = True# whether qsub the program.
 setQueue = False
@@ -35,7 +30,6 @@ if useMoreMemory:
 
 #----- simulation parameters -----#
 mode = sys.argv[1]# gen, empty, run.
-emberSimulation = True
 
 groupNums = [17]#[9, 33]
 routersPerGroups = [4]
@@ -43,25 +37,32 @@ nodeOneRouters = [4]
 alphas = [1]#[0.25, 0.5, 2, 4]# print as %.2f number.
 utilizations = [75]#[50, 100]
 
-allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']
+allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2']
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['stencil']
-messageSizes = [0]#[10**x for x in range(6,9)]
-messageIters = [2]#[2**x for x in range(10)]
+applications = ['alltoall']
+messageSizes = [10**5]#[10**x for x in range(6,9)]
+messageIters = [1]#[2**x for x in range(10)]
 
 expIters = 20
 if mode == 'run':
-    traceModes = ['corner']# corner, random, empty.
+    traceModes = ['corner']# corner, random, order.
 elif mode == 'empty':
-    traceModes = ['empty']# corner, random, empty.
+    traceModes = ['empty']
 elif mode == 'gen':
-    traceModes = ['random']
+    traceModes = ['order']
+
+hybridFolder = 'hybrid2'
+isolated = False
 
 #====================================
+#----- folder variables -----#
+main_sim_path = "/mnt/nokrb/zhangyj/SST/scratch/src/sst-elements/src/sst/elements/scheduler/simulations"
+env_script = "/mnt/nokrb/zhangyj/SST/exportSST.sh" # only modifys the environment variables.
 
 useUnstrMotif = False# not recommended.
+emberSimulation = True
 
 import os, sys
 from optparse import OptionParser
@@ -84,7 +85,10 @@ def main():
     options.env_script = env_script
 
     if mode == 'run':
-        options.exp_folder = 'hybrid'
+        if isolated:
+            options.exp_folder = 'isolated'
+        else:
+            options.exp_folder = hybridFolder
     elif mode == 'empty':
         options.exp_folder = 'empty'
 
@@ -112,23 +116,39 @@ def main():
                                     generatePhasefile(phasefileName, 'halo3d', messageSize, messageIter)
                                 for traceMode in traceModes:
                                     if traceMode == 'corner':
-                                        traceNum = 7
-                                        traceNumSet = range(1, traceNum + 1)
+                                        if isolated:
+                                            traceNumSet = [6]
+                                        else:
+                                            traceNum = 7
+                                            #traceNumSet = range(1, traceNum + 1)
+                                            traceNumSet = [17]#[1,2,3,4,5,6,7,14,15]
                                     elif traceMode == 'random':
-                                        traceNum = 10
+                                        traceNum = 50
+                                        traceNumSet = range(1, traceNum + 1)
+                                    elif traceMode == 'order':
+                                        traceNum = 50
                                         traceNumSet = range(1, traceNum + 1)
                                     elif traceMode == 'empty':
-                                        traceNumSet = readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application)
+                                        if isolated:
+                                            traceNumSet = [8]
+                                        else:
+                                            #traceNumSet = readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application)
+                                            traceNumSet = [4]
 
                                     for traceNum in traceNumSet:
                                         # trace numbers start from 1.
                                         name1 = 'G%dR%dN%d_uti%d_%s_mesSize%d_mesIter%d_%s_%d' % (groupNum, routersPerGroup, nodeOneRouter, 
                                                 utilization, application, messageSize, messageIter, traceMode, traceNum)
                                         simfileName = name1 + '.sim'
-                                        if not(mode == 'run' and traceMode == 'random'):
+                                        if traceMode != 'random' and traceMode != 'order':
                                             generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
                                                     graphName='empty', phaseName=phasefileName, runtime=1000)
-                                        if mode == 'gen':
+                                        if mode == 'gen' and traceMode == 'random':
+                                            generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
+                                                    graphName='empty', phaseName=phasefileName, runtime=1000)
+                                            continue
+                                        if mode == 'gen' and traceMode == 'order':
+                                            orderedSimfile(simfileName, traceNum, phasefileName, runtime=1000)
                                             continue
                                         for allocator in allocations:
                                             for mapper in mappers:
@@ -156,261 +176,261 @@ def readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageI
         sizes.append( int(line) )
     return sizes
 
-def generateMyLoadfile(options, graphName, strategy, messageIter, messageSize):
-    '''
-    this function is obsolete now.
-    messageSize: only for alltoall motif.
-    '''
-    import random
-    # set the number of nodes needed by each job.
-    jobs = []
-    # the following is for sNum + lNum hybrid job.
-    for i in range(sNum):
-        jobs.append(int(nodeInGroup * sSize))
-    for i in range(lNum):
-        jobs.append(int(nodeInGroup * lSize))
-    
-    # stores the allocation method. 1st for job number. 2nd for node numbers of each job.
-    allocation = [[] for i in range(len(jobs))]
-    # 2-d list shows available nodes. 1st for group, 2st for node.
-    freeNode = [[] for i in range(groupNum)]
-    nodeNum = nodeInGroup * groupNum
-    for inode in range(nodeNum):
-        freeNode[int(inode/nodeInGroup)].append(inode)
-    
-    if strategy == 'simple':
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][0]
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                job -= 1
-    elif strategy == 'simpleHeadEnd':# choose the head then the end when allocating in one group.
-        currentGroup = 0
-        eta = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][eta]
-                    freeNode[currentGroup].remove(allocNode)
-                    if eta == 0:
-                        eta = -1
-                    elif eta == -1:
-                        eta = 0
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                job -= 1
-    elif strategy == 'simpleRandom':# random choose a node when allocating in one group.
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = random.choice(freeNode[currentGroup])
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                job -= 1
-    elif strategy == 'spreadLimited':# only works for a single job. spread but limited in the condensed groups.
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][0]
-                    #allocNode = random.choice(freeNode[currentGroup])# randomness in selection.
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                currentGroup += 1# change group when successfully allocate a job.
-                if currentGroup == sSize:
-                    currentGroup = 0
-                job -= 1
-    elif strategy == 'localSpread':# select one node and jump to next router in the same group.
-        currentGroup = 0
-        currentNode = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][currentNode]
-                    freeNode[currentGroup].remove(allocNode)
-                    currentNode += 1
-                    if currentNode >= freeNode[currentGroup]:
-                        currentNode = 0
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                job -= 1
-    elif strategy == 'spread':
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][0]# add randomness in this line.
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                currentGroup += 1# change group when successfully allocate a job.
-                if currentGroup == groupNum:
-                    currentGroup = 0
-                job -= 1
-    elif strategy == 'nodeSpread':# allocate all 2 nodes in a router then change to next group.
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][0]# add randomness in this line.
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                if allocNode % 2 == 1:
-                    currentGroup += 1# change group when an odd number node is allocated.
-                if currentGroup == groupNum:
-                    currentGroup = 0
-                job -= 1
-    elif strategy == 'spreadRandom':
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = random.choice(freeNode[currentGroup])
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                currentGroup += 1# change group when successfully allocate a job.
-                if currentGroup == groupNum:
-                    currentGroup = 0
-                job -= 1
-    elif strategy == 'hybrid':
-        # add the grouped ones first serially. mark the nodes as allocated.
-        for ialloc in range(sNum):
-            allocation[ialloc] = list(range(int(nodeInGroup * sSize * ialloc), int(nodeInGroup * sSize * (ialloc+1))))
-            # this works only if no small job occupys part of a group.
-            freeNode[int(ialloc * sSize)] = []
-
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            # jump the allocated jobs.
-            if ijob < sNum:
-                continue
-
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = freeNode[currentGroup][0]# add randomness in this line.
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                currentGroup += 1# change group when successfully allocate a job.
-                if currentGroup == groupNum:
-                    currentGroup = 0
-                job -= 1
-    
-    elif strategy == 'hybridRandom':
-        # add the grouped ones first serially. mark the nodes as allocated.
-        for ialloc in range(sNum):
-            allocation[ialloc] = list(range(int(nodeInGroup * sSize * ialloc), int(nodeInGroup * sSize * (ialloc+1))))
-            # this works only if no small job occupys part of a group.
-            freeNode[int(ialloc * sSize)] = []
-
-        currentGroup = 0
-        for ijob, job in enumerate(jobs):
-            # jump the allocated jobs.
-            if ijob < sNum:
-                continue
-
-            while(job != 0):
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = random.choice(freeNode[currentGroup])
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    currentGroup += 1
-                    if currentGroup == groupNum:
-                        currentGroup = 0
-                    continue
-                allocation[ijob].append(allocNode)
-                currentGroup += 1# change group when successfully allocate a job.
-                if currentGroup == groupNum:
-                    currentGroup = 0
-                job -= 1
-    elif strategy == 'random':
-        freeGroup = [x for x in range(groupNum)]
-        for ijob, job in enumerate(jobs):
-            while(job != 0):
-                currentGroup = random.choice(freeGroup)
-                if len(freeNode[currentGroup]) != 0:
-                    allocNode = random.choice(freeNode[currentGroup])
-                    freeNode[currentGroup].remove(allocNode)
-                else:
-                    freeGroup.remove(currentGroup)
-                    continue
-                allocation[ijob].append(allocNode)
-                job -= 1
-
-    if shuffle:
-        for job in allocation:
-            random.shuffle(job)
-
-    # parameters for this part are in ember.cc.
-    fo = open(options.outdir + '/myloadfile','w')
-    for ijob, jobAlloc in enumerate(allocation):
-        fo.write('[JOB_ID] %d\n' % ijob)
-        fo.write('\n')
-        fo.write('[NID_LIST] ')
-        fo.write(','.join(str(x) for x in jobAlloc))
-        fo.write('\n')
-        fo.write('[MOTIF] Init\n')
-        if options.application == 'mesh':
-            fo.write('[MOTIF] Halo3D iterations=%d doreduce=0 pex=4 pey=4 pez=4\n' % messageIter)# number should change.
-        elif options.application == 'alltoall':
-            if ijob < sNum:# for small job.
-                if useUnstrMotif == True:
-                    fo.write('[MOTIF] Unstructured iterations=%d\tgraphfile=graph_files/%s\n' % (messageIter, graphName[0]) )
-                else:
-                    fo.write('[MOTIF] Alltoall iterations=%d\tbytes=%d\n' % (messageIter, messageSize) )
-            else:# for large jobs.
-                if useUnstrMotif == True:
-                    fo.write('[MOTIF] Unstructured iterations=%d\tgraphfile=graph_files/%s\n' % (messageIter, graphName[1]) )
-                else:
-                    fo.write('[MOTIF] Alltoall iterations=%d\tbytes=%d\n' % (messageIter, messageSize) )
-        fo.write('[MOTIF] Fini\n')
-        fo.write('\n')
-    fo.close()
+#def generateMyLoadfile(options, graphName, strategy, messageIter, messageSize):
+#    '''
+#    this function is obsolete now.
+#    messageSize: only for alltoall motif.
+#    '''
+#    import random
+#    # set the number of nodes needed by each job.
+#    jobs = []
+#    # the following is for sNum + lNum hybrid job.
+#    for i in range(sNum):
+#        jobs.append(int(nodeInGroup * sSize))
+#    for i in range(lNum):
+#        jobs.append(int(nodeInGroup * lSize))
+#    
+#    # stores the allocation method. 1st for job number. 2nd for node numbers of each job.
+#    allocation = [[] for i in range(len(jobs))]
+#    # 2-d list shows available nodes. 1st for group, 2st for node.
+#    freeNode = [[] for i in range(groupNum)]
+#    nodeNum = nodeInGroup * groupNum
+#    for inode in range(nodeNum):
+#        freeNode[int(inode/nodeInGroup)].append(inode)
+#    
+#    if strategy == 'simple':
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][0]
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                job -= 1
+#    elif strategy == 'simpleHeadEnd':# choose the head then the end when allocating in one group.
+#        currentGroup = 0
+#        eta = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][eta]
+#                    freeNode[currentGroup].remove(allocNode)
+#                    if eta == 0:
+#                        eta = -1
+#                    elif eta == -1:
+#                        eta = 0
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                job -= 1
+#    elif strategy == 'simpleRandom':# random choose a node when allocating in one group.
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = random.choice(freeNode[currentGroup])
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                job -= 1
+#    elif strategy == 'spreadLimited':# only works for a single job. spread but limited in the condensed groups.
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][0]
+#                    #allocNode = random.choice(freeNode[currentGroup])# randomness in selection.
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                currentGroup += 1# change group when successfully allocate a job.
+#                if currentGroup == sSize:
+#                    currentGroup = 0
+#                job -= 1
+#    elif strategy == 'localSpread':# select one node and jump to next router in the same group.
+#        currentGroup = 0
+#        currentNode = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][currentNode]
+#                    freeNode[currentGroup].remove(allocNode)
+#                    currentNode += 1
+#                    if currentNode >= freeNode[currentGroup]:
+#                        currentNode = 0
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                job -= 1
+#    elif strategy == 'spread':
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][0]# add randomness in this line.
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                currentGroup += 1# change group when successfully allocate a job.
+#                if currentGroup == groupNum:
+#                    currentGroup = 0
+#                job -= 1
+#    elif strategy == 'nodeSpread':# allocate all 2 nodes in a router then change to next group.
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][0]# add randomness in this line.
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                if allocNode % 2 == 1:
+#                    currentGroup += 1# change group when an odd number node is allocated.
+#                if currentGroup == groupNum:
+#                    currentGroup = 0
+#                job -= 1
+#    elif strategy == 'spreadRandom':
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = random.choice(freeNode[currentGroup])
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                currentGroup += 1# change group when successfully allocate a job.
+#                if currentGroup == groupNum:
+#                    currentGroup = 0
+#                job -= 1
+#    elif strategy == 'hybrid':
+#        # add the grouped ones first serially. mark the nodes as allocated.
+#        for ialloc in range(sNum):
+#            allocation[ialloc] = list(range(int(nodeInGroup * sSize * ialloc), int(nodeInGroup * sSize * (ialloc+1))))
+#            # this works only if no small job occupys part of a group.
+#            freeNode[int(ialloc * sSize)] = []
+#
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            # jump the allocated jobs.
+#            if ijob < sNum:
+#                continue
+#
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = freeNode[currentGroup][0]# add randomness in this line.
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                currentGroup += 1# change group when successfully allocate a job.
+#                if currentGroup == groupNum:
+#                    currentGroup = 0
+#                job -= 1
+#    
+#    elif strategy == 'hybridRandom':
+#        # add the grouped ones first serially. mark the nodes as allocated.
+#        for ialloc in range(sNum):
+#            allocation[ialloc] = list(range(int(nodeInGroup * sSize * ialloc), int(nodeInGroup * sSize * (ialloc+1))))
+#            # this works only if no small job occupys part of a group.
+#            freeNode[int(ialloc * sSize)] = []
+#
+#        currentGroup = 0
+#        for ijob, job in enumerate(jobs):
+#            # jump the allocated jobs.
+#            if ijob < sNum:
+#                continue
+#
+#            while(job != 0):
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = random.choice(freeNode[currentGroup])
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    currentGroup += 1
+#                    if currentGroup == groupNum:
+#                        currentGroup = 0
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                currentGroup += 1# change group when successfully allocate a job.
+#                if currentGroup == groupNum:
+#                    currentGroup = 0
+#                job -= 1
+#    elif strategy == 'random':
+#        freeGroup = [x for x in range(groupNum)]
+#        for ijob, job in enumerate(jobs):
+#            while(job != 0):
+#                currentGroup = random.choice(freeGroup)
+#                if len(freeNode[currentGroup]) != 0:
+#                    allocNode = random.choice(freeNode[currentGroup])
+#                    freeNode[currentGroup].remove(allocNode)
+#                else:
+#                    freeGroup.remove(currentGroup)
+#                    continue
+#                allocation[ijob].append(allocNode)
+#                job -= 1
+#
+#    if shuffle:
+#        for job in allocation:
+#            random.shuffle(job)
+#
+#    # parameters for this part are in ember.cc.
+#    fo = open(options.outdir + '/myloadfile','w')
+#    for ijob, jobAlloc in enumerate(allocation):
+#        fo.write('[JOB_ID] %d\n' % ijob)
+#        fo.write('\n')
+#        fo.write('[NID_LIST] ')
+#        fo.write(','.join(str(x) for x in jobAlloc))
+#        fo.write('\n')
+#        fo.write('[MOTIF] Init\n')
+#        if options.application == 'mesh':
+#            fo.write('[MOTIF] Halo3D iterations=%d doreduce=0 pex=4 pey=4 pez=4\n' % messageIter)# number should change.
+#        elif options.application == 'alltoall':
+#            if ijob < sNum:# for small job.
+#                if useUnstrMotif == True:
+#                    fo.write('[MOTIF] Unstructured iterations=%d\tgraphfile=graph_files/%s\n' % (messageIter, graphName[0]) )
+#                else:
+#                    fo.write('[MOTIF] Alltoall iterations=%d\tbytes=%d\n' % (messageIter, messageSize) )
+#            else:# for large jobs.
+#                if useUnstrMotif == True:
+#                    fo.write('[MOTIF] Unstructured iterations=%d\tgraphfile=graph_files/%s\n' % (messageIter, graphName[1]) )
+#                else:
+#                    fo.write('[MOTIF] Alltoall iterations=%d\tbytes=%d\n' % (messageIter, messageSize) )
+#        fo.write('[MOTIF] Fini\n')
+#        fo.write('\n')
+#    fo.close()
 
 
 def generatePyfile(sstInputName, simfileName, application, mapper, dflyArgv, allocator):
@@ -568,6 +588,172 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
+        elif traceNum == 8:
+            # small ones.
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 4 * nodeOneRouter * routersPerGroup ) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # large ones.
+            node = 2 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 9:
+            # large ones.
+            node = 2 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 4 * nodeOneRouter * routersPerGroup ) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 10:
+            # small ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 4 * nodeOneRouter * routersPerGroup ) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # large ones.
+            node = 2 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 11:
+            # large ones.
+            node = 5 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 2
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # medium ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 3
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones.
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = 16
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 12:
+            # small ones.
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = 16
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # medium ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 3
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # large ones.
+            node = 5 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 2
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 13:
+            # medium ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 3
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # large ones.
+            node = 5 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 2
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones.
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = 16
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 14:
+            node = 3 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = int(nodesToAlloc / node)
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 15:
+            node = 4 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = int(nodesToAlloc / node)
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 16:# No.7 with mixed iterations.
+            # large ones.
+            node = 2 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones amplified.
+            phaseName = 'alltoall_mesSize100000_mesIter100.phase'
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 4 * nodeOneRouter * routersPerGroup ) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 17:# No.7 with median instead of large.
+            # median ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones. 
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 2 * nodeOneRouter * routersPerGroup ) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        #elif traceNum == 9:
+        #    # large ones.
+        #    node = int(nodeOneRouter * routersPerGroup * groupNum / 2)
+        #    core = node * 2
+        #    phaseName = 'alltoall_mesSize1000_mesIter1.phase'
+        #    simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+        #    simfile.write(simLine)
+        #    # small ones.
+        #    node = nodeOneRouter
+        #    core = node * 2
+        #    jobNum = int( ( nodesToAlloc - int(nodeOneRouter * routersPerGroup * groupNum / 2) ) / node )
+        #    for ijob in range(jobNum):
+        #        phaseName = 'alltoall_mesSize1000_mesIter100.phase'
+        #        simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+        #        simfile.write(simLine)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
@@ -585,6 +771,33 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
             freeNode = freeNode - node
             jobID = jobID + 1
 
+    simfile.close()
+    print('tracefile %s generated.' % simName)
+
+def orderedSimfile(simName, traceNum, phaseName, runtime):
+    from random import shuffle
+    import math
+    tempname = 'jobtrace_files/' + simName
+    simfile = open(tempname, 'w')
+    jobsizes = [2**x for x in range(1, 7+1)]
+    rever = list(reversed(jobsizes))
+    shuff = jobsizes
+    if traceNum == 1:
+        for ijob in range(len(jobsizes)):
+            core = jobsizes[ijob] * 2
+            simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+            simfile.write(simLine)
+    elif traceNum == 2:
+        for ijob in range(len(rever)):
+            core = rever[ijob] * 2
+            simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+            simfile.write(simLine)
+    elif traceNum > 2:
+        shuffle(shuff)
+        for ijob in range(len(shuff)):
+            core = shuff[ijob] * 2
+            simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+            simfile.write(simLine)
     simfile.close()
     print('tracefile %s generated.' % simName)
 

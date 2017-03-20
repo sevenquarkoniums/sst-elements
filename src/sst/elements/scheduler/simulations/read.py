@@ -10,17 +10,20 @@ run by:
 ./read.py empty
 ./read.py analyzeEmpty
 ./read.py hybrid
+./read.py statistics
+./read.py isolated
 
 ### TODO ###
 
-
 ### warning ###
-hybrid reading changed for stencil only.
+jump cases.
+folder name.
 
 """
 import sys
 #=========================
 mode = sys.argv[1]
+hybridFolder = 'hybrid2'
 #=========================
 import datetime
 now = datetime.datetime.now()
@@ -38,8 +41,8 @@ if mode == 'hybrid':
 
 def main():
     if mode == 'hybrid':
-        df = inspect('hybrid', mode)
-        df.to_csv('hybrid_stencil.csv', index=False)
+        df = inspect(hybridFolder, mode)
+        df.to_csv('hybrid_17.csv', index=False)
 
     elif mode == 'empty':
         df = inspect('empty', mode)
@@ -59,10 +62,18 @@ def main():
             out.write('%d\n' % iSize)
         out.close()
 
+    elif mode == 'isolated':
+        df = inspect('isolated', mode)
+        df.to_csv('isolated.csv', index=False)
+
     elif mode == 'draw':
         df = pd.read_csv('hybrid.csv')
         draw(df, groupNum=17, routersPerGroup=4, nodesPerRouter=4, utilization=75, application='alltoall', messageSize=100000, messageIter=2, 
                 traceMode='corner', scheduler='easy', routing='adaptive', alpha=1)
+
+    elif mode == 'statistics':
+        df = getStat()
+        df.to_csv('statistics.csv', index=False)
 
     #readBaseline('Baseline_R4G17')
     #bestBase('Baseline_R4G17')
@@ -79,7 +90,59 @@ def main():
     #    dfMatlab.to_csv('%s/%s_matlab_%.1f.csv' % (mainFolderName, folder, selAlpha), index=False)
     print('finished in %d seconds.' % (datetime.datetime.now()-now).seconds)
 
+def getStat():
+    '''
+    read network statistics.
+    only use expIter==0.
+    '''
+    stat = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
+        'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','router','portType',
+        'send_bit_count','send_packet_count','output_port_stalls','idle_time'])
+    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid', 'dflyhybridbf', 'dflyhybridthres2']
+    traceModes = ['corner']
+    for traceMode in traceModes:
+        if traceMode == 'corner':
+            traceNumSet = [1,2,3,4,5,6,7,14,15]
+        elif traceMode == 'random':
+            traceNum = 50
+            traceNumSet = range(1, traceNum + 1)
+        for traceNum in traceNumSet:
+            for allocation in allocations:
+                name1 = 'G17R4N4_uti75_alltoall_mesSize100000_mesIter1_%s_%d_%s_topo_easy_adaptive_alpha1.00_expIter0' % (traceMode, traceNum, allocation)
+                fname = 'hybrid/%s/networkStats.csv' % name1
+                readStat(stat, fname, traceMode, traceNum, allocation)
+    return stat
+
+def readStat(df, fname, traceMode, traceNum, allocation):
+    '''
+    only workable for G17R4N4 machines!
+    '''
+    one = pd.read_csv(fname,sep=', ',engine='python')
+    for irow in one.index:
+        statType = one.loc[irow,'StatisticName']
+        if statType == 'send_bit_count':
+            sbc = one.loc[irow,'Count.u64']
+        elif statType == 'send_packet_count':
+            spc = one.loc[irow,'Count.u64']
+        elif statType == 'output_port_stalls':
+            ops = one.loc[irow,'Count.u64']
+        elif statType == 'idle_time':
+            it = one.loc[irow,'Count.u64']
+            router = one.loc[irow,'ComponentName'][4:]
+            portNum = int( one.loc[irow,'StatisticSubId'][4:] )
+            if portNum < 4:
+                portType = 'node'
+            elif portNum >= 4 and portNum < 7:
+                portType = 'local'
+            elif portNum >= 7:
+                portType = 'global'
+            df.loc[len(df),:] = [17,4,4,75,'alltoall',100000,1,traceMode,traceNum,allocation,'topo','easy','adaptive',1,0,router,portType,sbc,spc,ops,it]
+
 def draw(df, groupNum, routersPerGroup, nodesPerRouter, utilization, application, messageSize, messageIter, traceMode, scheduler, routing, alpha):
+    '''
+    obsolete.
+    current using the one in win.
+    '''
     import matplotlib.pyplot as plt
     dfThis = df[
                 (df['groupNum']==groupNum)
@@ -146,9 +209,10 @@ def emptyMin(df):
                                                         & (df['routing']==routing)
                                                         & (df['alpha']==alpha)
                                                         ]
-                                        timeMin = dfOneCase['time(us)'].min()
-                                        dfMin.loc[len(dfMin),:] = [groupNum,routersPerGroup,nodesPerRouter,'all',application,messageSize,messageIter,
-                                                'analyzeEmpty',size,'all','all','all',routing,alpha,'all',timeMin]
+                                        if len(dfOneCase) != 0:
+                                            timeMin = dfOneCase['time(us)'].min()
+                                            dfMin.loc[len(dfMin),:] = [groupNum,routersPerGroup,nodesPerRouter,'all',application,messageSize,messageIter,
+                                                    'analyzeEmpty',size,'all','all','all',routing,alpha,'all',timeMin]
     return dfMin
 
 def inspect(path, mode, app='nan'):
@@ -162,7 +226,7 @@ def inspect(path, mode, app='nan'):
     if mode == 'hybrid':
         df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
             'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','Avg.Norm.Latency'])
-    elif mode == 'empty':
+    elif mode == 'empty' or mode == 'isolated':
         df = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
             'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','time(us)'])
     elif mode == 'readSize':
@@ -173,6 +237,7 @@ def inspect(path, mode, app='nan'):
         fname = split[-1]
         if fname == 'ember.out':
             para = split[-2]
+            print(para)
             paraSplit = para.split('_')
             # exp info.
             machine = paraSplit[0]
@@ -191,12 +256,16 @@ def inspect(path, mode, app='nan'):
             routing = paraSplit[10]
             alpha = float(paraSplit[11].split('alpha')[1])
             expIter = int(paraSplit[12].split('expIter')[1])
+            if traceNum != 17:
+                continue
+            #if groupNum != 17 or routersPerGroup != 4 or nodesPerRouter != 4 or utilization != 75 or application != 'alltoall' or traceMode != 'corner' or alpha != 1:
+            #    continue
             # read file.
             if mode == 'empty':
                 (time, find) = read(file, 'last')
+            elif mode == 'isolated':
+                (time, find) = read(file, 'big')
             elif mode == 'hybrid':
-                if application == 'alltoall':
-                    continue
                 parameters = {}
                 parameters['groupNum'] = groupNum
                 parameters['routersPerGroup'] = routersPerGroup
@@ -214,7 +283,7 @@ def inspect(path, mode, app='nan'):
                     continue
 
             if find == 1:# if find == 0 so simulation didn't complete, no records in the df.
-                if mode == 'hybrid' or mode == 'empty':
+                if mode == 'hybrid' or mode == 'empty' or mode == 'isolated':
                     df.loc[len(df),:] = [groupNum,routersPerGroup,nodesPerRouter,utilization,application,messageSize,messageIter,
                             traceMode,traceNum,allocation,taskmapping,scheduler,routing,alpha,expIter,time]
                 elif mode == 'readSize':
@@ -236,6 +305,22 @@ def read(file, readmode, parameters=0):
         for line in infile:
             if line.startswith('Job Finished:'):
                 string = line.split(':')[4].split(' ')# 32101 us
+                number = float(string[0])
+                unit   = string[1].split('\n')[0]
+                time = convertToMicro(number, unit)
+            if line.startswith('Simulation is complete'):# make sure the simulation is complete.
+                find = 1
+        if find == 0:# no this line.
+            time = 0
+
+    elif readmode == 'big':# the finish time of the big job.
+        time = 0
+        for line in infile:
+            if line.startswith('Job Finished:'):
+                size = int(line.split(':')[3].split(' ')[0])
+                if size != 136:
+                    continue
+                string = line.split(':')[4].split(' ')
                 number = float(string[0])
                 unit   = string[1].split('\n')[0]
                 time = convertToMicro(number, unit)
@@ -459,56 +544,10 @@ def fileIterSize(mainFolderName):
     df = inspect('%s/%s' % (mainFolderName, folder) )
     df.to_csv('%s/%s.csv' % (mainFolderName, folder), index=False)
     df = pd.read_csv('%s/%s.csv' % (mainFolderName, folder) )
-    matrixIterSize(df, 'sizeIter')
-
-def readBaseline(mainFolderName):
-    method = 'separateMin'
-    combinations = tools.getFolders(mainFolderName)
-    if method == 'useGlobalMin':
-        mins = pd.DataFrame(columns=['folder','appSize','routing','minTime'])
-    elif method == 'separateMin':
-        mins = pd.DataFrame(columns=['folder','appSize','routing','alpha','minTime','minAlloc'])
-    for folder in combinations:
-        appSize = folder.split('_')[3]
-        routing = folder.split('_')[4]
-        df = inspect('%s/%s' % (mainFolderName, folder) , folder)
-        #df.to_csv('%s/%s.csv' % (mainFolderName, folder), index=False)
-        if method == 'useGlobalMin':
-            dfTimes = df['time(us)']
-            minTime = min(dfTimes)
-            print(minTime)
-            mins.loc[len(mins)] = [folder, appSize, routing, minTime]
-        elif method == 'separateMin':
-            # for the items with identical alpha, get the min.
-            for ialpha in list(set(df['alpha'])):
-                oneAlpha = df[df['alpha']==ialpha]
-                minTime = min(oneAlpha['time(us)'])
-                minIdx = oneAlpha['time(us)'].idxmin(axis=0)
-                minAlloc = oneAlpha.loc[minIdx]['alloc']
-                mins.loc[len(mins)] = [folder, appSize, routing, ialpha, minTime, minAlloc]
-    mins.to_csv('%s/minTimes.csv' % mainFolderName, index=False)
-    print('file reading finished.')
-
-def getMedian(df):
-    dfMedian = pd.DataFrame(columns=df.columns)
-    for alpha in list(set(df['alpha'])):
-        for alloc in list(set(df['alloc'])):
-            onePara = df[ (df['alpha']==alpha) & (df['alloc']==alloc) ]
-            sample = onePara.iloc[0,:].copy()
-            median = np.median( onePara['time(us)'] )
-            sample['time(us)'] = median
-            dfMedian.loc[len(dfMedian)] = sample
-    return dfMedian
-
-def readHybrid(mainFolderName):
-    combinations = tools.getFolders(mainFolderName)
-    allDF = []
-    for folder in combinations:
-        df = inspect('%s/%s' % (mainFolderName, folder), folder)
-        #df.to_csv('%s/%s.csv' % (mainFolderName, folder), index=False)
-        dfMedian = getMedian(df)
-        #dfMedian.to_csv('%s/%s_median.csv' % (mainFolderName, folder), index=False)
-        allDF.append(dfMedian)
+    #df.to_csv('%s/%s.csv' % (mainFolderName, folder), index=False)
+    dfMedian = getMedian(df)
+    #dfMedian.to_csv('%s/%s_median.csv' % (mainFolderName, folder), index=False)
+    allDF.append(dfMedian)
     combinedDF = pd.concat(allDF, ignore_index=True)
     combinedDF.to_csv('%s/Hybrid_combined.csv' % (mainFolderName), index=False)
 
