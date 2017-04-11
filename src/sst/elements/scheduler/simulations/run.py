@@ -1,20 +1,22 @@
 #!/usr/bin/env python
 '''
 Created by  : Yijia Zhang
-Description : Run a batch of sst jobs.
+Description : create workload and run a batch of sst jobs.
 
 run by:
     ./run.py gen
+        :generate the random workloads.
     ./run.py empty
+        :run single job on empty machine to get the baseline communication time.
     ./run.py run
+        :run workload.
 
 ### TODO ###
 
-### CANDO ###
-
 ### warning ###
-some corner case.
-change folder.
+Original ember output are modified for our task.
+for stencil, only mesSize=2 is workable. The output is different from other motifs.
+test before running new parameters.
 
 '''
 import sys
@@ -23,38 +25,43 @@ import sys
 qsub = True# whether qsub the program.
 setQueue = False
 if setQueue:
-    queue = 'icsg.q' #bme.q, ece.q, me.q is great.
+    queue = 'bme.q,icsg.q' #bme.q, ece.q, me.q is great.
 useMoreMemory = False
 if useMoreMemory:
-    memory = 4
+    memory = 8
 
 #----- simulation parameters -----#
 mode = sys.argv[1]# gen, empty, run.
 
-groupNums = [17]#[9, 33]
-routersPerGroups = [4]
-nodeOneRouters = [4]
+groupNums = [21]#[9, 17, 33, 129]
+routersPerGroups = [5]
+nodeOneRouters = [5]
 alphas = [1]#[0.25, 0.5, 2, 4]# print as %.2f number.
-utilizations = [75]#[50, 100]
+utilizations = [75]#[50, 100] # machine utilization level.
 
-allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2']
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['alltoall']
+applications = ['alltoall']#['alltoall','allpingpong','stencil']
 messageSizes = [10**5]#[10**x for x in range(6,9)]
 messageIters = [1]#[2**x for x in range(10)]
+expIters = 20# iteration time of each experiment.
 
-expIters = 20
 if mode == 'run':
-    traceModes = ['corner']# corner, random, order.
+    traceModes = ['random']# corner, random, order.
+    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid',]#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
+    hybridFolder = 'largeMachine'
+    specificCornerCases = [1,2,3,4,5,6,7,18]
+
 elif mode == 'empty':
     traceModes = ['empty']
-elif mode == 'gen':
-    traceModes = ['order']
+    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyhybrid']
+    emptySizes = [2,4,8,16,32,64,128,256]
 
-hybridFolder = 'hybrid2'
-isolated = False
+elif mode == 'gen':
+    traceModes = ['random']
+
+isolated = False# whether to use the isolated/ folder to generate output files.
 
 #====================================
 #----- folder variables -----#
@@ -114,14 +121,17 @@ def main():
                                 elif application == 'stencil':
                                     phasefileName = '%s_mesIter%d.phase' % (application, messageIter)
                                     generatePhasefile(phasefileName, 'halo3d', messageSize, messageIter)
+                                elif application == 'allpingpong':
+                                    phasefileName = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, messageIter)
+                                    generatePhasefile(phasefileName, 'allpingpong', messageSize, messageIter)
                                 for traceMode in traceModes:
                                     if traceMode == 'corner':
                                         if isolated:
-                                            traceNumSet = [6]
+                                            traceNumSet = [18]
                                         else:
                                             traceNum = 7
                                             #traceNumSet = range(1, traceNum + 1)
-                                            traceNumSet = [17]#[1,2,3,4,5,6,7,14,15]
+                                            traceNumSet = specificCornerCases
                                     elif traceMode == 'random':
                                         traceNum = 50
                                         traceNumSet = range(1, traceNum + 1)
@@ -133,7 +143,7 @@ def main():
                                             traceNumSet = [8]
                                         else:
                                             #traceNumSet = readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application)
-                                            traceNumSet = [4]
+                                            traceNumSet = emptySizes
 
                                     for traceNum in traceNumSet:
                                         # trace numbers start from 1.
@@ -170,6 +180,10 @@ def main():
 #----- main end -----#
 
 def readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application):
+    '''
+    read all the encountered job size in the simulated hybrid workloads.
+    Executing this funtion to get job size is not necessary.
+    '''
     sizeFile = open('allsize_%s.txt' % application,'r')
     sizes = []
     for line in sizeFile:
@@ -435,7 +449,7 @@ def readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageI
 
 def generatePyfile(sstInputName, simfileName, application, mapper, dflyArgv, allocator):
     '''
-    use a python file template to generate the required file.
+    use makeInput.py to generate the python input file for SST-scheduler module.
     '''
     pyName = 'sstInput/%s' % sstInputName
     detailedEmber = 'ON' if emberSimulation else 'OFF'
@@ -495,12 +509,13 @@ def generatePyfile(sstInputName, simfileName, application, mapper, dflyArgv, all
 def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, graphName, phaseName, runtime):
     '''
     generate the .sim files in the jobtrace_file folder.
+    Workloads are generated in this function.
 
     traceMode = 'corner' generate corner cases.
                 'empty' generate empty machine traces.
                 'random' generate random cases.
 
-    runtime is an int in microseconds setting the assumed running time of a job.
+    runtime is an int in microseconds setting the assumed running time of a job. Not useful.
     '''
     import random
     import math
@@ -739,6 +754,13 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
             for ijob in range(jobNum):
                 simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
                 simfile.write(simLine)
+        elif traceNum == 18:# replacing case 4, here each job is quarter-size.
+            node = int(nodeOneRouter * routersPerGroup * groupNum / 4)
+            core = node * 2
+            jobNum = int(nodesToAlloc / node)
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
         #elif traceNum == 9:
         #    # large ones.
         #    node = int(nodeOneRouter * routersPerGroup * groupNum / 2)
@@ -754,6 +776,21 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
         #        phaseName = 'alltoall_mesSize1000_mesIter100.phase'
         #        simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
         #        simfile.write(simLine)
+        elif traceNum == 19:# No.7 with mixed message size.
+            # large ones.
+            node = 2 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            for ijob in range(2):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+            # small ones amplified.
+            phaseName = 'alltoall_mesSize10000000_mesIter1.phase'
+            node = nodeOneRouter
+            core = node * 2
+            jobNum = int( ( nodesToAlloc - 4 * nodeOneRouter * routersPerGroup ) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
@@ -775,6 +812,12 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
     print('tracefile %s generated.' % simName)
 
 def orderedSimfile(simName, traceNum, phaseName, runtime):
+    '''
+    To compare different allocation order of the seven jobs in size: 2 4 8 16 32 64 128.
+    traceNum=1 is the small-first order.
+    traceNum=2 is the large-first order.
+    others are randomly generated order for allocation.
+    '''
     from random import shuffle
     import math
     tempname = 'jobtrace_files/' + simName
@@ -802,6 +845,10 @@ def orderedSimfile(simName, traceNum, phaseName, runtime):
     print('tracefile %s generated.' % simName)
 
 def generatePhasefile(phaseName, pattern, messageSize=1000, messageIter=1, graphName='empty'):
+    '''
+    Motifs are defined in ember/mpi/motifs/.
+    Motif parameters can be found in ember.cc
+    '''
     tempname = 'phase_files/' + phaseName
     phasefile = open(tempname, 'w')
     phasefile.write('Init\n')
@@ -811,14 +858,16 @@ def generatePhasefile(phaseName, pattern, messageSize=1000, messageIter=1, graph
         if pattern == 'alltoall':
             phasefile.write('Alltoall    iterations=%d    bytes=%d\n' % (messageIter, messageSize) )
         elif pattern == 'halo3d':
-            phasefile.write('Halo3D    doreduce=1    iterations=%d\n' % messageIter)
+            phasefile.write('Halo3D    doreduce=1    iterations=%d    fields_per_cell=1\n' % messageIter)
+        elif pattern == 'allpingpong':
+            phasefile.write('AllPingPong    iterations=%d    messageSize=%d    computetime=1\n' % (messageIter, messageSize) )
     phasefile.write('Fini\n')
     phasefile.close()
     print('phasefile %s generated.' % phaseName)
 
 def generateGraphfile(graphName, jobSize):
     '''
-    generate the graph used in unstructured.
+    generate the graph used in unstructured motif. Not useful now.
     graphName is the .mtx file name.
     '''
     import random
