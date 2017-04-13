@@ -1,0 +1,15 @@
+folder,results,comment
+hybrid,hybrid.csv,corner case results for SC paper.
+hybrid2,hybrid2.csv,corner case results continued.
+random,hybrid_random.csv,random case results for SC paper.
+random2,random2.csv,hybrid variants results.
+order,hybrid_order.csv,comparing allocation order.
+*,motivation.csv,drawing the figure in the motivation section.
+hybrid,statistics.csv,network port statistics for SC paper.
+hybrid2,statistics2.csv,continued.
+random_part,hybrid_randomChangePara.csv,changing one parameter and check the results for random cases. only iterated 1 times.
+Optimum,Optimum.csv,run 8/32/32-node jobs 100k times to check the optimum. on a 72-node machine.
+Optimum2,Optimum2.csv,run 2/4/8/16/32-node jobs 100k times.
+isolated,isolated.csv,some isolated simulations for convenient testing.
+largeMachine,largeMachine.csv,G21R5N5 machine random case results.
+mixMessageSize,mixMessageSize.csv,as the title.

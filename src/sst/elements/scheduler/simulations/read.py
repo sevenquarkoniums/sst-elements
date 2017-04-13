@@ -7,12 +7,17 @@ used to read the 128 shuffle and find out how many shuffle is good enough and sh
 
 run by:
 ./read.py readSize stencil
+    :read all the job size encountered in the results.
 ./read.py empty
+    :read empty machine runtimes.
 ./read.py analyzeEmpty
+    :compare and find the minimum and summarize these baseline communication time.
 ./read.py hybrid
 ./read.py statistics
+    :read network port statistics.
 ./read.py isolated
 ./read.py separate
+    :for reading the small/large job runtime separately in corner case 7.
 ./read.py motivation
 
 ### TODO ###
@@ -27,9 +32,9 @@ import sys
 mode = sys.argv[1]
 
 if mode == 'hybrid':
-    hybridFolder = 'largeMachine'
-    hybridName = 'largeMachine.csv'
-#=========================
+    hybridFolder = 'Optimum'
+    hybridName = 'Optimum.csv'
+
 import datetime
 now = datetime.datetime.now()
 
@@ -42,7 +47,7 @@ else:
 import tools
 
 if mode == 'hybrid' or mode == 'separate':
-    dfEmpty = pd.read_csv('empty.csv')
+    dfEmpty = pd.read_csv('empty2.csv')
 
 def main():
     if mode == 'hybrid':
@@ -54,17 +59,17 @@ def main():
         df.to_csv('APS_corner7_size32.csv', index=False)
 
     elif mode == 'empty':
-        df = inspect('empty', mode)
-        df.to_csv('emptyRaw.csv', index=False)
+        df = inspect('empty2', mode)
+        df.to_csv('emptyRaw2.csv', index=False)
 
     elif mode == 'motivation':
         df = inspect('motivation', mode)
         df.to_csv('motivation.csv', index=False)
 
     elif mode == 'analyzeEmpty':
-        df = pd.read_csv('emptyRaw.csv')
+        df = pd.read_csv('emptyRaw2.csv')
         dfMin = emptyMin(df)
-        dfMin.to_csv('empty.csv', index=False)
+        dfMin.to_csv('empty2.csv', index=False)
 
     elif mode == 'readSize':
         app = sys.argv[2]
@@ -88,6 +93,7 @@ def main():
         df = getStat()
         df.to_csv('statistics2.csv', index=False)
 
+#=========================
     #readBaseline('Baseline_R4G17')
     #bestBase('Baseline_R4G17')
     #readHybrid('Hybrid_R4G17')
