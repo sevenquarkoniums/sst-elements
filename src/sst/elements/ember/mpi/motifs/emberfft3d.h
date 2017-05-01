@@ -100,6 +100,8 @@ private:
     void*               m_recvBuf;
     float              m_nsPerElement;
     std::vector<float> m_transCostPer;
+
+    int jobId; //NetworkSim
 };
 
 }

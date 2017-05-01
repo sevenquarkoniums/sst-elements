@@ -29,7 +29,7 @@ EmberAllPingPongGenerator::EmberAllPingPongGenerator(SST::Component* owner,
 	m_iterations = (uint32_t) params.find("arg.iterations", 1);
 	m_messageSize = (uint32_t) params.find("arg.messageSize", 128);
 	m_computeTime = (uint32_t) params.find("arg.computetime", 1000);
-
+    jobId        = (int) params.find_integer("_jobId"); //NetworkSim
     m_sendBuf = memAlloc(m_messageSize);
     m_recvBuf = memAlloc(m_messageSize);
 }
@@ -38,6 +38,7 @@ bool EmberAllPingPongGenerator::generate( std::queue<EmberEvent*>& evQ)
 {
     if ( m_loopIndex == m_iterations ) {
         if ( 0 == rank()) {
+            /*
             double totalTime = (double)(m_stopTime - m_startTime)/1000000000.0;
 
             double latency = ((totalTime/m_iterations)/2);
@@ -50,6 +51,8 @@ bool EmberAllPingPongGenerator::generate( std::queue<EmberEvent*>& evQ)
                                 m_messageSize,
                                 latency * 1000000.0,
                                 bandwidth / 1000000000.0 );
+            */
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
         }
 
         return true;

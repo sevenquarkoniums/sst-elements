@@ -39,6 +39,7 @@ private:
     MessageResponse m_resp;
     void*    m_sendBuf;
     void*    m_recvBuf;
+    int jobId;
 };
 
 }

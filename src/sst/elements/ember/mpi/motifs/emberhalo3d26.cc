@@ -23,6 +23,8 @@ EmberHalo3D26Generator::EmberHalo3D26Generator(SST::Component* owner, Params& pa
 	EmberMessagePassingGenerator(owner, params, "Halo3D26"),
 	m_loopIndex(0) 
 {
+    jobId        = (int) params.find_integer("_jobId"); //NetworkSim
+
 	nx  = (uint32_t) params.find("arg.nx", 100);
 	ny  = (uint32_t) params.find("arg.ny", 100);
 	nz  = (uint32_t) params.find("arg.nz", 100);
@@ -235,6 +237,13 @@ EmberHalo3D26Generator::EmberHalo3D26Generator(SST::Component* owner, Params& pa
 
 bool EmberHalo3D26Generator::generate( std::queue<EmberEvent*>& evQ) {
 	verbose(CALL_INFO, 1, 0, "Iteration on rank %" PRId32 "\n", rank());
+
+    if ( m_loopIndex == iterations){
+        if ( 0 == rank() ){
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
+        }
+        return true;
+    }
 
 		enQ_compute( evQ, compute_the_time );
 
@@ -475,12 +484,12 @@ bool EmberHalo3D26Generator::generate( std::queue<EmberEvent*>& evQ) {
 		if(corner_c > -1) { 
 			enQ_isend( evQ, corner_c, items_per_cell * sizeof_cell * 1, 0, GroupWorld, &requests[nextRequest]);
 			nextRequest++;
-		}
+        }
 
-		if(corner_d > -1) {
+		if(corner_d > -1) { 
 			enQ_isend( evQ, corner_d, items_per_cell * sizeof_cell * 1, 0, GroupWorld, &requests[nextRequest]);
 			nextRequest++;
-		}
+        }
 
 		if(corner_e > -1) {
 			enQ_isend( evQ, corner_e, items_per_cell * sizeof_cell * 1, 0, GroupWorld, &requests[nextRequest]);
@@ -508,10 +517,14 @@ bool EmberHalo3D26Generator::generate( std::queue<EmberEvent*>& evQ) {
 		verbose(CALL_INFO, 1, 0, "Iteration on rank %" PRId32 " completed generation, %d events in queue\n",
 			rank(), (int)evQ.size());
 
+    /*
     if ( ++m_loopIndex == iterations ) {
         return true;
     } else {
         return false;
     }
+    */
 
+    m_loopIndex++;
+    return false;
 }

@@ -28,6 +28,7 @@ EmberBcastGenerator::EmberBcastGenerator(SST::Component* owner,
 	m_count      = (uint32_t) params.find("arg.count", 1);
     m_compute    = (uint32_t) params.find("arg.compute", 0);
 	m_root    = (uint32_t) params.find("arg.root", 0);
+    jobId        = (int) params.find_integer("_jobId"); //NetworkSim
     m_sendBuf = NULL;
 }
 
@@ -36,11 +37,14 @@ bool EmberBcastGenerator::generate( std::queue<EmberEvent*>& evQ) {
     if ( m_loopIndex == m_iterations ) {
         int typeSize = sizeofDataType(DOUBLE);
         if ( size() - 1 == rank() ) {
+            /* original output.
             double latency = (double)(m_stopTime-m_startTime)/(double)m_iterations;
             latency /= 1000000000.0;
             output( "%s: ranks %d, loop %d, bytes %" PRIu32 ", latency %.3f us\n",
                     getMotifName().c_str(), size(), m_iterations, 
                         m_count * typeSize, latency * 1000000.0  );
+            */
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
         }
         return true;
     }

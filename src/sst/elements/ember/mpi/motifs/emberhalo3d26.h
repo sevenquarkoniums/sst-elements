@@ -84,6 +84,8 @@ private:
 	int32_t  corner_f;
 	int32_t  corner_g;
 	int32_t  corner_h;
+
+    int jobId; //NetworkSim
 };
 
 }

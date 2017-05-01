@@ -95,6 +95,7 @@ namespace SST {
                     DFLYSLURM = 24,
                     DFLYHYBRIDBF = 25,
                     DFLYHYBRIDTHRES2 = 26,
+                    DFLYHYBRIDRN = 27,
                 };
                 enum TaskMapperType{
                     SIMPLEMAP = 0,
@@ -137,13 +138,13 @@ namespace SST {
                 static const int numMachTableEntries = 4;
                 static const int numSchedTableEntries = 6;
                 static const int numFSTTableEntries = 3;
-                static const int numAllocTableEntries = 27;
+                static const int numAllocTableEntries = 28;
                 static const int numTaskMapTableEntries = 7;
                 
                 static const machTableEntry machTable[4];
                 static const schedTableEntry schedTable[6];
                 static const FSTTableEntry FSTTable[3];
-                static const allocTableEntry allocTable[27];
+                static const allocTableEntry allocTable[28];
                 static const taskMapTableEntry taskMapTable[7];
 
                 SchedulerType schedulername(std::string inparam);

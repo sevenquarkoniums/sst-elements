@@ -55,6 +55,8 @@ EmberFFT3DGenerator::EmberFFT3DGenerator(SST::Component* owner, Params& params) 
     m_transCostPer[4] = (float) params.find("arg.bwd_fft2",1);
     m_transCostPer[5] = (float) params.find("arg.bwd_fft3",1);
 
+    jobId        = (int) params.find_integer("_jobId"); //NetworkSim
+
 	configure();
 }
 
@@ -293,10 +295,13 @@ bool EmberFFT3DGenerator::generate( std::queue<EmberEvent*>& evQ )
 
     if (  m_loopIndex == (signed) m_iterations ) {
         if ( 0 == rank() ) {
+            /*
             output("%s: nRanks=%d fwd time %f sec\n", getMotifName().c_str(), size(), 
                 ((double) m_forwardTotal / 1000000000.0) / m_iterations );
             output("%s: rRanks=%d bwd time %f sec\n", getMotifName().c_str(), size(),
                 ((double) m_backwardTotal / 1000000000.0) / m_iterations );
+            */
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
         }
         return true;
     }

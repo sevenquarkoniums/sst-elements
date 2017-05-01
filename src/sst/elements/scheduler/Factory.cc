@@ -40,6 +40,7 @@
 #include "allocators/DflyHybridAllocator.h"
 #include "allocators/DflyHybridBFAllocator.h"
 #include "allocators/DflyHybridThres2Allocator.h"
+#include "allocators/DflyHybridRnAllocator.h"
 #include "allocators/DflyRDGAllocator.h"
 #include "allocators/DflyRDRAllocator.h"
 #include "allocators/DflyRRNAllocator.h"
@@ -115,6 +116,7 @@ const Factory::allocTableEntry Factory::allocTable[] = {
     {DFLYHYBRID, "dflyhybrid"},
     {DFLYHYBRIDBF, "dflyhybridbf"},
     {DFLYHYBRIDTHRES2, "dflyhybridthres2"},
+    {DFLYHYBRIDRN, "dflyhybridrn"},
     {DFLYRDR, "dflyrdr"},
     {DFLYRDG, "dflyrdg"},
     {DFLYRRN, "dflyrrn"},
@@ -530,6 +532,16 @@ Allocator* Factory::getAllocator(SST::Params& params, Machine* m, schedComponent
                     schedout.fatal(CALL_INFO, 1, "Dragonfly Hybrid (threshold 2 groups) allocator requires dragonfly machine\n");
                 } else {
                     return new DflyHybridThres2Allocator(*dMachine);
+                }
+                break;
+            }
+        case DFLYHYBRIDRN:
+            {
+                DragonflyMachine *dMachine = dynamic_cast<DragonflyMachine*>(m);
+                if (dMachine == NULL) {
+                    schedout.fatal(CALL_INFO, 1, "Dragonfly Hybrid (randomized) allocator requires dragonfly machine\n");
+                } else {
+                    return new DflyHybridRnAllocator(*dMachine);
                 }
                 break;
             }

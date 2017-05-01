@@ -37,6 +37,7 @@ private:
     void*    m_sendBuf;
     int      m_root;
     uint32_t m_loopIndex;
+    int jobId; //NetworkSim
 };
 
 }
