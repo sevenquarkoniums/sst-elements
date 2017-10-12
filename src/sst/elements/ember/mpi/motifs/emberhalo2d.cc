@@ -50,6 +50,8 @@ EmberHalo2DGenerator::EmberHalo2DGenerator(SST::Component* owner, Params& params
 
 	messageCount = 0;
 
+    jobId        = (int) params.find_integer("_jobId"); //NetworkSim
+
 	configure();
 }
 
@@ -118,6 +120,13 @@ bool EmberHalo2DGenerator::generate( std::queue<EmberEvent*>& evQ) {
         verbose(CALL_INFO, 1, 0, "rank=%d size=%d\n", rank(),size());
     }
 
+    if ( m_loopIndex == iterations){
+        if ( 0 == rank() ){
+            output("Job Finished: JobNum:%d NodeNum:%d Time:%" PRIu64 " us\n", jobId, size()/2, getCurrentSimTimeMicro());
+        }
+        return true;
+    }
+
 		verbose(CALL_INFO, 2, 0, "Halo 2D motif generating events for loopIndex %" PRIu32 "\n", m_loopIndex);
 
 		enQ_compute( evQ, nsCompute);
@@ -179,9 +188,14 @@ bool EmberHalo2DGenerator::generate( std::queue<EmberEvent*>& evQ) {
 			}
 		}
 
+    /*
 	if ( ++m_loopIndex == iterations ) {
         return true;
     } else {
         return false;
     }
+    */
+
+    m_loopIndex++;
+    return false;
 }

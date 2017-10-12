@@ -4,7 +4,7 @@ Created by  : Yijia Zhang
 Description : create workload and run a batch of sst jobs.
 
 run by:
-    ./run.py gen
+    ./run.py gen 1000
         :generate the random workloads.
     ./run.py empty
         :run single job on empty machine to get the baseline communication time.
@@ -16,9 +16,10 @@ run by:
 ### warning ###
 Original ember output are modified for our task.
 test with isolated=True before running new parameters.
-opticalsPerRouter cannot be even number for no reason.
+opticalsPerRouter cannot be odd number for no reason.
 allpingpong cannot work well for small mesIter.
-iterations only work for alltoall 1000.
+adaptive iterations only work for alltoall 1000.
+41 group experiments may fail due to memory 2G.
 
 '''
 import sys
@@ -32,31 +33,38 @@ useMoreMemory = False
 if useMoreMemory:
     memory = 4
 
+#----- debug variables -----#
+runOnlyOne = True# submit only the first loop.
+isolated = False# whether to use the isolated/ folder to generate output files.
+
 #----- simulation parameters -----#
 mode = sys.argv[1]# gen, empty, run.
 
-nodeOneRouters = [4]#[2,4,3,4]#[5]
-routersPerGroups = [4]#[4,4,6,8]#[10]#
-groupNums = [17]#[9,17,25,33]#[41]#
-alphas = [1]#[0.25, 1, 4]# print as %.2f number.
-utilizations = [75]#[75, 100] # machine utilization level.
+nodeOneRouters = [4]
+routersPerGroups = [4]
+groupNums = [17]
+alphas = [0.25, 1, 4]# print as %.2f number.
+utilizations = [90, 70] # machine utilization level.
 
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['alltoall']#['alltoall','allpingpong','stencil','bcast','halo3d26']
-messageSizes = [10**3]#[10**x for x in range(6,9)]# not always useful for all patterns.
+applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']
+messageSizes = [1000]#[10**x for x in range(1,6)]# not always useful for all patterns.
 messageIters = [1]#[2**x for x in range(10)]
-expIters = 1# iteration time of each experiment.
+expIters = 10# iteration time of each experiment.
 
-isolated = False# whether to use the isolated/ folder to generate output files.
+multipleRandomOrder = True# whether to have multiple cases of random allocation order through the expIters.
 
 if mode == 'run':
-    traceModes = ['random']# corner, random, order.
-    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid','dflyhybridbf','dflyhybridthres2','dflyhybridrn']
-    hybridFolder = 'modify_random'
-    specificCornerCases = [32]#[1,2,3,18,6,22,26,27]
-    modifyiters = [340,114,43,20,7,3]
+    traceModes = ['corner']# corner, random, order.
+    if 'random' in traceModes:
+        multipleRandomOrder = False
+    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
+    hybridFolder = 'machine_4_4_17'# avoided by isolated.
+    specificCornerCases = [64,66]#[1,2,3,18,6,22,26,27]
+    modifyiters = []#[340,114,43,20,7,3]
+    randomNum = 1000
 
 elif mode == 'empty':
     traceModes = ['empty']
@@ -65,8 +73,10 @@ elif mode == 'empty':
     emptyFolder = 'empty_more'
 
 elif mode == 'gen':
+    multipleRandomOrder = False
     traceModes = ['random']
-    modifyiters = [340,114,43,20,7,3]
+    randomNum = int(sys.argv[2])
+    modifyiters = []
 
 #====================================
 #----- folder variables -----#
@@ -77,6 +87,7 @@ useUnstrMotif = False# not recommended.
 emberSimulation = True
 
 import os, sys
+import pandas as pd
 from optparse import OptionParser
 import os.path
 
@@ -96,6 +107,9 @@ def main():
     options.main_sim_path = main_sim_path
     options.env_script = env_script
 
+    if isolated:
+        print('Results will be in folder isolated/.')
+
     if mode == 'run':
         if isolated:
             options.exp_folder = 'isolated'
@@ -104,6 +118,7 @@ def main():
     elif mode == 'empty':
         options.exp_folder = emptyFolder
 
+    simfileNames = []
     for gnidx, groupNum in enumerate(groupNums):
         routersPerGroup = routersPerGroups[gnidx]
         nodeOneRouter = nodeOneRouters[gnidx]
@@ -120,16 +135,19 @@ def main():
             for messageSize in messageSizes:
                 for messageIter in messageIters:
                     for application in applications:
-                        if application in ['alltoall','allpingpong','fft','bcast','halo3d26']:
+                        if application in ['alltoall','allpingpong','fft','bcast','halo3d26','halo2d']:
                             phasefileName = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, messageIter)
-                            generatePhasefile(phasefileName, application, messageSize, messageIter)
+                            if not os.path.isfile('phase_files/%s' % phasefileName):
+                                generatePhasefile(phasefileName, application, messageSize, messageIter)
                             if mode != 'empty':
+                                # generate more phasefiles for the increased iterations of the smaller jobs.
                                 for modifyiter in modifyiters:
                                     modifyname = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, modifyiter)
                                     generatePhasefile(modifyname, application, messageSize, modifyiter)
                         elif application == 'stencil':
                             phasefileName = '%s_mesIter%d.phase' % (application, messageIter)
-                            generatePhasefile(phasefileName, 'halo3d', messageSize, messageIter)
+                            if not os.path.isfile('phase_files/%s' % phasefileName):
+                                generatePhasefile(phasefileName, 'halo3d', messageSize, messageIter)
                             if mode != 'empty':
                                 for modifyiter in modifyiters:
                                     modifyname = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, modifyiter)
@@ -138,7 +156,7 @@ def main():
                             if traceMode == 'corner':
                                 traceNumSet = specificCornerCases
                             elif traceMode == 'random':
-                                traceNum = 100
+                                traceNum = randomNum
                                 traceNumSet = range(1, traceNum + 1)
                             elif traceMode == 'order':
                                 traceNum = 50
@@ -154,35 +172,83 @@ def main():
                                 # trace numbers start from 1.
                                 name1 = 'G%dR%dN%d_uti%d_%s_mesSize%d_mesIter%d_%s_%d' % (groupNum, routersPerGroup, nodeOneRouter, 
                                         utilization, application, messageSize, messageIter, traceMode, traceNum)
-                                simfileName = name1 + '.sim'
-                                if traceMode != 'random' and traceMode != 'order':
-                                    generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
-                                            graphName='empty', phaseName=phasefileName, runtime=1000)
-                                if mode == 'gen' and traceMode == 'random':
-                                    generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
-                                            graphName='empty', phaseName=phasefileName, runtime=1000)
-                                    continue
-                                if mode == 'gen' and traceMode == 'order':
-                                    orderedSimfile(simfileName, traceNum, phasefileName, runtime=1000)
-                                    continue
-                                for allocator in allocations:
-                                    for mapper in mappers:
-                                        for scheduler in schedulers:
-                                            name2 = '_%s_%s_%s' % (allocator, mapper, scheduler)
-                                            options.sstInputName = name1 + name2 + '.py'
-                                            generatePyfile(options.sstInputName, simfileName, application, mapper, dflyArgv, allocator)
-                                            for rout in routings:
-                                                routName = 'adaptive' if rout == 'adaptive_local' else rout
-                                                for alpha in alphas:
-                                                    for expIter in range(expIters):
-                                                        name3 = '_%s_alpha%.2f_expIter%d' % (routName, alpha, expIter)
-                                                        options.exp_name = name1 + name2 + name3
-                                                        options.alpha = alpha
-                                                        options.routing = rout
-                                                        submit_job(options)
+                                if not multipleRandomOrder:
+                                    simfileName = name1 + '.sim'
+                                    simfileNames.append(simfileName)
+                                    if traceMode != 'random' and traceMode != 'order':
+                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
+                                                graphName='empty', phaseName=phasefileName, runtime=1000)
+                                    if mode == 'gen' and traceMode == 'random':
+                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
+                                                graphName='empty', phaseName=phasefileName, runtime=1000)
+                                        continue
+                                    if mode == 'gen' and traceMode == 'order':
+                                        orderedSimfile(simfileName, traceNum, phasefileName, runtime=1000)
+                                        continue
+                                    for allocator in allocations:
+                                        for mapper in mappers:
+                                            for scheduler in schedulers:
+                                                name2 = '_%s_%s_%s' % (allocator, mapper, scheduler)
+                                                options.sstInputName = name1 + name2 + '.py'
+                                                generatePyfile(options.sstInputName, simfileName, application, mapper, dflyArgv, allocator)
+                                                for rout in routings:
+                                                    routName = 'adaptive' if rout == 'adaptive_local' else rout
+                                                    for alpha in alphas:
+                                                        for expIter in range(expIters):
+                                                            name3 = '_%s_alpha%.2f_expIter%d' % (routName, alpha, expIter)
+                                                            options.exp_name = name1 + name2 + name3
+                                                            options.alpha = alpha
+                                                            options.routing = rout
+                                                            submit_job(options)
+                                                            if runOnlyOne:
+                                                                sys.exit(0)
+                                elif multipleRandomOrder:# just move the for loop of expIter to the front and add expIter label to files.
+                                    for expIter in range(expIters):
+                                        simfileName = name1 + '_%d.sim' % expIter
+                                        simfileNames.append(simfileName)
+                                        generateSimfile(simfileName, application, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, messageSize,
+                                                graphName='empty', phaseName=phasefileName, runtime=1000)
+                                        for allocator in allocations:
+                                            for mapper in mappers:
+                                                for scheduler in schedulers:
+                                                    name2 = '_%s_%s_%s' % (allocator, mapper, scheduler)
+                                                    options.sstInputName = name1 + name2 + '_%d.py' % expIter
+                                                    generatePyfile(options.sstInputName, simfileName, application, mapper, dflyArgv, allocator)
+                                                    for rout in routings:
+                                                        routName = 'adaptive' if rout == 'adaptive_local' else rout
+                                                        for alpha in alphas:
+                                                            name3 = '_%s_alpha%.2f_expIter%d' % (routName, alpha, expIter)
+                                                            options.exp_name = name1 + name2 + name3
+                                                            options.alpha = alpha
+                                                            options.routing = rout
+                                                            submit_job(options)
+                                                            if runOnlyOne:
+                                                                sys.exit(0)
+
+
+    if mode == 'gen':
+        df = jobsizeDist(simfileNames)
+        df.to_csv('jobsizeDist%d.csv' % randomNum, index=False)
 
 
 #----- main end -----#
+def jobsizeDist(simfileNames):
+    sizeCount = {}
+    for simfile in simfileNames:
+        f = open('jobtrace_files/'+simfile, 'r')
+        for line in f:
+            linesplit = line.split()
+            size = int(linesplit[1]) / 2
+            if size not in sizeCount:
+                sizeCount[size] = 1
+            else:
+                sizeCount[size] += 1
+
+    df = pd.DataFrame(columns=['jobsize','count'])
+    for jobsize in sizeCount:
+        df.loc[len(df)] = [jobsize, sizeCount[jobsize]]
+    print('jobsize distribution count finished.')
+    return df
 
 def readTraceSet(groupNum, routersPerGroup, nodeOneRouter, messageSize, messageIter, application):
     '''
@@ -511,7 +577,7 @@ def generatePyfile(sstInputName, simfileName, application, mapper, dflyArgv, all
 #    snap.close()
 #    print('snapshotParser_sched.py modified.')
 
-def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, graphName, phaseName, runtime):
+def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, messageSize, graphName, phaseName, runtime):
     '''
     generate the .sim files in the jobtrace_file folder.
     Workloads are generated in this function.
@@ -1000,7 +1066,280 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
             shuffle(strings)# randomized the allocation order.
             for string in strings:
                 simfile.write(string)
+        elif traceNum == 33:# 2 & 4. 1 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter340.phase'
+            node = 2
+            core = node * 2
+            jobNum = 1
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter114.phase'
+            node = 4
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 2) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 34:# 2 & 8. 1 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter340.phase'
+            node = 2
+            core = node * 2
+            jobNum = 1
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter43.phase'
+            node = 8
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 2) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 35:# 2 & 16. 1 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter340.phase'
+            node = 2
+            core = node * 2
+            jobNum = 1
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter20.phase'
+            node = 16
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 2) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 36:# 4 & 8. 1 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter114.phase'
+            node = 4
+            core = node * 2
+            jobNum = 1
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter43.phase'
+            node = 8
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 4) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 37:# 4 & 16. 1 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter114.phase'
+            node = 4
+            core = node * 2
+            jobNum = 1
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter20.phase'
+            node = 16
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 4) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 38:# 8 & 16. 1 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter43.phase'
+            node = 8
+            core = node * 2
+            jobNum = 1
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter20.phase'
+            node = 16
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 8) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 39:# 8 & 16. 2 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter43.phase'
+            node = 8
+            core = node * 2
+            jobNum = 2
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter20.phase'
+            node = 16
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 16) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 40:# 8 & 16. 3 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter43.phase'
+            node = 8
+            core = node * 2
+            jobNum = 3
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter20.phase'
+            node = 16
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 24) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 41:# 8 & 16. 4 small and many large.
+            strings = []
+            # small ones.
+            phaseName2 = 'alltoall_mesSize1000_mesIter43.phase'
+            node = 8
+            core = node * 2
+            jobNum = 4
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+                strings.append(simLine)
+            # large ones.
+            phaseName3 = 'alltoall_mesSize1000_mesIter20.phase'
+            node = 16
+            core = node * 2
+            jobNum = int( (nodesToAlloc - 32) / node )
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName3)
+                strings.append(simLine)
+            shuffle(strings)# randomized the allocation order.
+            for string in strings:
+                simfile.write(string)
+        elif traceNum == 42:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 32, 8, 1, 16)
+        elif traceNum == 43:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 1, 8, 16, 16)
+        elif traceNum == 44:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 12, 8, 11, 16)
+        elif traceNum == 45:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 6, 32, 1, 64)
+        elif traceNum == 46:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 1, 32, 3, 64)
+        elif traceNum == 47:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 4, 32, 2, 64)
+        elif traceNum == 48:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 13, 16, 1, 64)
+        elif traceNum == 49:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 1, 16, 4, 64)
+        elif traceNum == 50:
+            writeTrace('fixed', nodesToAlloc, simfile, runtime, 5, 16, 3, 64)
+        elif traceNum == 51:
+            writeTrace('equalNum', nodesToAlloc, simfile, runtime, -1, 2, -1, 4)
+        elif traceNum == 52:
+            node = 2 * nodeOneRouter
+            core = node * 2
+            jobNum = int(nodesToAlloc / node)
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName)
+                simfile.write(simLine)
+        elif traceNum == 53:
+            # small ones.
+            node = nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 5
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/alltoall_mesSize1000_mesIter20.phase\n' % (core, runtime)
+                simfile.write(simLine)
+            # large ones.
+            node = 4 * nodeOneRouter * routersPerGroup
+            core = node * 2
+            jobNum = 3
+            for ijob in range(jobNum):
+                simLine = '0 %d %d -1 phase phase_files/alltoall_mesSize1000_mesIter3.phase\n' % (core, runtime)
+                simfile.write(simLine)
+        elif traceNum == 54:
+            writeTrace('fixed', False, nodesToAlloc, simfile, runtime, 1, 16, 1000, 1, 4, 64, 1000, 20)
+        elif traceNum == 55:
+            writeTrace('fixed', False, nodesToAlloc, simfile, runtime, 1, 16, 10000, 1, 4, 64, 1000, 20)
+        elif traceNum == 56:
+            writeTrace('fixed', False, nodesToAlloc, simfile, runtime, 1, 16, 100000, 1, 4, 64, 1000, 20)
+        elif traceNum == 57:
+            writeTrace('fixed', False, nodesToAlloc, simfile, runtime, 1, 16, 1000, 10, 4, 64, 1000, 20)
+        elif traceNum == 58:
+            writeTrace('fixed', False, application, nodesToAlloc, simfile, runtime, 1, 16, 1000, 100, 4, 64, 10000, 1)
+        elif traceNum == 59:
+            writeTrace('fixed', False, application, nodesToAlloc, simfile, runtime, 1, 16, 1000, 100, 4, 64, 1000, 10)
+        elif traceNum == 60:
+            writeTrace('fixed', False, application, nodesToAlloc, simfile, runtime, 1, 16, 10000, 10, 4, 64, 1000, 10)
+        elif traceNum == 61:
+            writeTrace('fixed', False, application, nodesToAlloc, simfile, runtime, 1, 16, 100000, 1, 4, 64, 1000, 10)
+        elif traceNum == 62:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, 4, messageSize, 1)
+        elif traceNum == 63:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, 8, 1000, 1)
+        elif traceNum == 64:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, 16, messageSize, 1)
+        elif traceNum == 65:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, 32, 1000, 1)
+        elif traceNum == 66:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, 64, messageSize, 1)
+        elif traceNum == 67:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, 128, 1000, 1)
+        elif traceNum == 68:
+            writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, int(nodesToAlloc/4), messageSize, 1)# should use uti 100%.
+        elif traceNum == 69:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 1, 0, 64, 1000, 1)# the default messageSize are overwritten.
+        elif traceNum == 70:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 1, 0, 64, 100000, 1)
+        elif traceNum == 71:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 1, 0, 64, 1000, 1)
+        elif traceNum == 72:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 1, 0, 64, 100000, 1)
 
+        elif (traceNum // 100)==1:# 1ij.
+            i = traceNum // 10 - 10
+            j = traceNum % 10
+            writeTrace('equalNum', nodesToAlloc, simfile, runtime, -1, 2**i, -1, 2**j)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
@@ -1017,25 +1356,19 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
             #simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName)
             if node == 2:
                 phaseName2 = 'alltoall_mesSize1000_mesIter340.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
             elif node == 4:
                 phaseName2 = 'alltoall_mesSize1000_mesIter114.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
             elif node == 8:
                 phaseName2 = 'alltoall_mesSize1000_mesIter43.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
             elif node == 16:
                 phaseName2 = 'alltoall_mesSize1000_mesIter20.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
             elif node == 32:
                 phaseName2 = 'alltoall_mesSize1000_mesIter7.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
             elif node == 64:
                 phaseName2 = 'alltoall_mesSize1000_mesIter3.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
             elif node == 128:
                 phaseName2 = 'alltoall_mesSize1000_mesIter1.phase'
-                simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
+            simLine = '%d %d %d -1 phase phase_files/%s\n' % (arriveTime, core, runtime, phaseName2)
 
             simfile.write(simLine)
             freeNode = freeNode - node
@@ -1043,6 +1376,83 @@ def generateSimfile(simName, nodesToAlloc, nodeOneRouter, routersPerGroup, group
 
     simfile.close()
     print('tracefile %s generated.' % simName)
+
+def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runtime, num1, size1, mesSize1, mesIter1, num2=0, size2=0, mesSize2=0, mesIter2=0):
+    from random import shuffle
+    strings = []
+    if application == 'stencil':
+        application = 'halo3d'
+
+    # first size.
+    node = size1
+    core = node * 2
+    if writemode == 'fixed':
+        jobNum = num1
+    elif writemode == 'equalNum':# assume size1 <= size2.
+        jobNum = int(nodesToAlloc/(size1+size2))
+    elif writemode == 'homo':# only one type of jobs.
+        jobNum = int(nodesToAlloc/size1)
+
+    if mesIter1 == 'auto':
+        if node == 2:
+            phaseName2 = 'alltoall_mesSize%d_mesIter340.phase' % mesSize1
+        elif node == 4:
+            phaseName2 = 'alltoall_mesSize%d_mesIter114.phase' % mesSize1
+        elif node == 8:
+            phaseName2 = 'alltoall_mesSize%d_mesIter43.phase' % mesSize1
+        elif node == 16:
+            phaseName2 = 'alltoall_mesSize%d_mesIter20.phase' % mesSize1
+        elif node == 32:
+            phaseName2 = 'alltoall_mesSize%d_mesIter7.phase' % mesSize1
+        elif node == 64:
+            phaseName2 = 'alltoall_mesSize%d_mesIter3.phase' % mesSize1
+        elif node == 128:
+            phaseName2 = 'alltoall_mesSize%d_mesIter1.phase' % mesSize1
+    else:
+        phaseName2 = '%s_mesSize%d_mesIter%d.phase' % (application, mesSize1, mesIter1)
+        if not os.path.isfile('phase_files/%s' % phaseName2):
+            generatePhasefile(phaseName2, application, mesSize1, mesIter1)
+    for ijob in range(jobNum):
+        simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+        strings.append(simLine)
+
+    # second size.
+    if writemode != 'homo':
+        node = size2
+        core = node * 2
+        if writemode == 'fixed':
+            jobNum = num2
+        elif writemode == 'equalNum':# assume size1 <= size2.
+            jobNum = int(nodesToAlloc/(size1+size2))
+            #jobNum = int(nodesToAlloc/(size1+size2)) + int((nodesToAlloc-(size1+size2)*int(nodesToAlloc/(size1+size2)))/size2)
+
+        if mesIter2 == 'auto':
+            if node == 2:
+                phaseName2 = 'alltoall_mesSize%d_mesIter340.phase' % mesSize2
+            elif node == 4:
+                phaseName2 = 'alltoall_mesSize%d_mesIter114.phase' % mesSize2
+            elif node == 8:
+                phaseName2 = 'alltoall_mesSize%d_mesIter43.phase' % mesSize2
+            elif node == 16:
+                phaseName2 = 'alltoall_mesSize%d_mesIter20.phase' % mesSize2
+            elif node == 32:
+                phaseName2 = 'alltoall_mesSize%d_mesIter7.phase' % mesSize2
+            elif node == 64:
+                phaseName2 = 'alltoall_mesSize%d_mesIter3.phase' % mesSize2
+            elif node == 128:
+                phaseName2 = 'alltoall_mesSize%d_mesIter1.phase' % mesSize2
+        else:
+            phaseName2 = '%s_mesSize%d_mesIter%d.phase' % (application, mesSize2, mesIter2)
+            if not os.path.isfile('phase_files/%s' % phaseName2):
+                generatePhasefile(phaseName2, application, mesSize2, mesIter2)
+        for ijob in range(jobNum):
+            simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
+            strings.append(simLine)
+
+    if randomOrder == True:
+        shuffle(strings)# randomized the allocation order.
+    for string in strings:
+        simfile.write(string)
 
 def orderedSimfile(simName, traceNum, phaseName, runtime):
     '''
@@ -1091,16 +1501,18 @@ def generatePhasefile(phaseName, pattern, messageSize=1000, messageIter=1, graph
     else:
         if pattern == 'alltoall':
             phasefile.write('Alltoall    iterations=%d    bytes=%d\n' % (messageIter, messageSize) )
+        elif pattern == 'halo2d':
+            phasefile.write('Halo2D    iterations=%d    messagesizex=%d    messagesizey=%d    computenano=1\n' % (messageIter, messageSize, messageSize))
         elif pattern == 'halo3d':
-            phasefile.write('Halo3D    doreduce=1    iterations=%d    fields_per_cell=1\n' % messageIter)
+            phasefile.write('Halo3D    doreduce=1    iterations=%d    fields_per_cell=%d    computetime=1    nx=16    ny=16    nz=16\n' % (messageIter, messageSize/1000))
         elif pattern == 'halo3d26':
-            phasefile.write('Halo3D26    doreduce=1    iterations=%d    fields_per_cell=1\n' % messageIter)
-        elif pattern == 'allpingpong':
+            phasefile.write('Halo3D26    doreduce=1    iterations=%d    fields_per_cell=%d    computetime=1    nx=16    ny=16    nz=16\n' % (messageIter, messageSize/1000))
+        elif pattern == 'allpingpong':# weird results, too small.
             phasefile.write('AllPingPong    iterations=%d    messageSize=%d    computetime=1\n' % (messageIter, messageSize) )
-        elif pattern == 'fft':# don't work.
-            phasefile.write('FFT3D    iterations=%d\n' % (messageIter) )
+        elif pattern == 'fft':
+            phasefile.write('FFT3D    iterations=%d    npRow=4\n' % (messageIter) )
         elif pattern == 'bcast':
-            phasefile.write('Bcast    iterations=%d    count=%d\n' % (messageIter, messageSize) )
+            phasefile.write('Bcast    iterations=%d    count=%d\n' % (messageIter, messageSize) )# the count isn't messageSize.
     phasefile.write('Fini\n')
     phasefile.close()
     print('phasefile %s generated.' % phaseName)

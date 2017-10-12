@@ -33,8 +33,8 @@ mode = sys.argv[1]
 
 if mode in ['hybrid', 'hybridAll']:
     gNum = 0# default.
-    hybridFolder = 'modify_random'
-    hybridName = 'modify_random.csv'
+    hybridFolder = 'isolated'
+    hybridName = hybridFolder + '.csv'
     #gNum = int(sys.argv[2])
     #hybridName = 'more_%d.csv' % gNum
 
@@ -53,11 +53,7 @@ if mode == 'hybrid' or mode == 'separate':
     dfEmpty = pd.read_csv('empty_more.csv')
 
 def main():
-    if mode == 'hybrid':
-        df = inspect(hybridFolder, mode)
-        df.to_csv(hybridName, index=False)
-
-    elif mode == 'hybridAll':
+    if mode in ['hybrid','hybridAll']:
         df = inspect(hybridFolder, mode, readGroup=gNum)
         df.to_csv(hybridName, index=False)
 

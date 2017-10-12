@@ -52,6 +52,9 @@ private:
 	int32_t  procNorth;
 	int32_t  procSouth;
 
+    int jobId; //NetworkSim
+	uint64_t m_startTime;  //NetworkSim
+    uint64_t m_stopTime;  //NetworkSim
 };
 
 }
