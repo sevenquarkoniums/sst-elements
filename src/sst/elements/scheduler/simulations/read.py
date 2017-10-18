@@ -32,11 +32,12 @@ import sys
 mode = sys.argv[1]
 
 if mode in ['hybrid', 'hybridAll']:
-    gNum = 0# default.
-    hybridFolder = 'isolated'
-    hybridName = hybridFolder + '.csv'
-    #gNum = int(sys.argv[2])
-    #hybridName = 'more_%d.csv' % gNum
+    distrPara = []
+    hybridFolder = 'machine_4_8_33_2'
+    #hybridName = hybridFolder + '.csv'
+    distrPara.append(sys.argv[2])
+    distrPara.append(sys.argv[3])
+    hybridName = hybridFolder + '_%s_%s.csv' % (distrPara[0],distrPara[1])
 
 import datetime
 now = datetime.datetime.now()
@@ -54,7 +55,7 @@ if mode == 'hybrid' or mode == 'separate':
 
 def main():
     if mode in ['hybrid','hybridAll']:
-        df = inspect(hybridFolder, mode, readGroup=gNum)
+        df = inspect(hybridFolder, mode, distrPara)
         df.to_csv(hybridName, index=False)
 
     elif mode == 'separate':# get the APS for a specific size jobs.
@@ -241,7 +242,7 @@ def emptyMin(df):
                                                     'analyzeEmpty',size,allocMin,'all','all',routing,alpha,'all',timeMin]
     return dfMin
 
-def inspect(path, mode, app='nan', readGroup=0):
+def inspect(path, mode, distrPara=[], app='nan'):
     '''
     get a table with results from all experiments.
     '''
@@ -270,12 +271,12 @@ def inspect(path, mode, app='nan', readGroup=0):
             # exp info.
             machine = paraSplit[0]
             groupNum = int(machine.split('G')[1].split('R')[0])
-            if readGroup != 0 and groupNum != readGroup:
-                continue
             routersPerGroup = int(machine.split('R')[1].split('N')[0])
             nodesPerRouter = int(machine.split('N')[1])
             utilization = int(paraSplit[1].split('uti')[1])
             application = paraSplit[2]
+            if distrPara[1] != application:
+                continue
             messageSize = int(paraSplit[3].split('mesSize')[1])
             messageIter = int(paraSplit[4].split('mesIter')[1])
             traceMode = paraSplit[5]
@@ -283,6 +284,8 @@ def inspect(path, mode, app='nan', readGroup=0):
             if mode == 'separate' and (routersPerGroup != 4 or traceNum != 7 or traceMode != 'corner'):
                 continue
             allocation = paraSplit[7]
+            if distrPara[0] != allocation:
+                continue
             taskmapping = paraSplit[8]
             scheduler = paraSplit[9]
             routing = paraSplit[10]

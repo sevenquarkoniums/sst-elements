@@ -31,7 +31,7 @@ if setQueue:
     queue = 'bme.q,icsg.q' #bme.q, ece.q, me.q is great.
 useMoreMemory = False
 if useMoreMemory:
-    memory = 4
+    memory = 3
 
 #----- debug variables -----#
 runOnlyOne = True# submit only the first loop.
@@ -41,17 +41,17 @@ isolated = False# whether to use the isolated/ folder to generate output files.
 mode = sys.argv[1]# gen, empty, run.
 
 nodeOneRouters = [4]
-routersPerGroups = [4]
-groupNums = [17]
-alphas = [0.25, 1, 4]# print as %.2f number.
+routersPerGroups = [8]
+groupNums = [33]# use 3G for 65-group.
+alphas = [4, 1, 0.25]# print as %.2f number.
 utilizations = [90, 70] # machine utilization level.
 
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']
-messageSizes = [1000]#[10**x for x in range(1,6)]# not always useful for all patterns.
-messageIters = [1]#[2**x for x in range(10)]
+applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
+messageSizes = [1000]#[10**x for x in range(1,6)]# not useful in fft. overwritten by workloads.
+messageIters = [1]#[2**x for x in range(10)]# overwritten by workloads.
 expIters = 10# iteration time of each experiment.
 
 multipleRandomOrder = True# whether to have multiple cases of random allocation order through the expIters.
@@ -61,10 +61,10 @@ if mode == 'run':
     if 'random' in traceModes:
         multipleRandomOrder = False
     allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
-    hybridFolder = 'machine_4_4_17'# avoided by isolated.
-    specificCornerCases = [64,66]#[1,2,3,18,6,22,26,27]
+    hybridFolder = 'machine_4_8_33_2'# avoided by isolated.
+    specificCornerCases = [69]#[1,2,3,18,6,22,26,27]
     modifyiters = []#[340,114,43,20,7,3]
-    randomNum = 1000
+    randomNum = 1000# only used for random workload.
 
 elif mode == 'empty':
     traceModes = ['empty']
@@ -1328,18 +1328,20 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
         elif traceNum == 68:
             writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, int(nodesToAlloc/4), messageSize, 1)# should use uti 100%.
         elif traceNum == 69:
-            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 1, 0, 64, 1000, 1)# the default messageSize are overwritten.
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 2, 0, 64, 1000, 2)# the default messageSize are overwritten.
         elif traceNum == 70:
-            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 1, 0, 64, 100000, 1)
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 2, 0, 64, 100000, 2)
         elif traceNum == 71:
-            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 1, 0, 64, 1000, 1)
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 2, 0, 64, 1000, 2)
         elif traceNum == 72:
-            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 1, 0, 64, 100000, 1)
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 2, 0, 64, 100000, 2)
 
         elif (traceNum // 100)==1:# 1ij.
             i = traceNum // 10 - 10
             j = traceNum % 10
             writeTrace('equalNum', nodesToAlloc, simfile, runtime, -1, 2**i, -1, 2**j)
+        elif traceNum >= 1000:# generate random number of two sizes of jobs, should meet the machine utilization level. allocate small jobs first.
+            writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
@@ -1377,8 +1379,9 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
     simfile.close()
     print('tracefile %s generated.' % simName)
 
-def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runtime, num1, size1, mesSize1, mesIter1, num2=0, size2=0, mesSize2=0, mesIter2=0):
+def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runtime, num1=0, size1=0, mesSize1=0, mesIter1=0, num2=0, size2=0, mesSize2=0, mesIter2=0):
     from random import shuffle
+    from random import randint
     strings = []
     if application == 'stencil':
         application = 'halo3d'
@@ -1392,8 +1395,13 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
         jobNum = int(nodesToAlloc/(size1+size2))
     elif writemode == 'homo':# only one type of jobs.
         jobNum = int(nodesToAlloc/size1)
+    elif writemode == 'randomTwoSize':
+        size2 = randint(17, 270)
+        jobNum2limit = int(nodesToAlloc/size2)
+        jobNum2 = randint(1, jobNum2limit)
+        size1 = randint(2, 16)
 
-    if mesIter1 == 'auto':
+    if mesIter1 == 'auto':# if want to automatically change the iteration of messages to match the running of both small & large jobs.
         if node == 2:
             phaseName2 = 'alltoall_mesSize%d_mesIter340.phase' % mesSize1
         elif node == 4:
