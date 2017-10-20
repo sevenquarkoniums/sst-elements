@@ -34,35 +34,35 @@ if useMoreMemory:
     memory = 3
 
 #----- debug variables -----#
-runOnlyOne = True# submit only the first loop.
+runOnlyOne = False# submit only the first loop.
 isolated = False# whether to use the isolated/ folder to generate output files.
 
 #----- simulation parameters -----#
 mode = sys.argv[1]# gen, empty, run.
 
 nodeOneRouters = [4]
-routersPerGroups = [8]
-groupNums = [33]# use 3G for 65-group.
-alphas = [4, 1, 0.25]# print as %.2f number.
-utilizations = [90, 70] # machine utilization level.
+routersPerGroups = [4]
+groupNums = [17]# use 3G for 65-group.
+alphas = [1]#[4, 1, 0.25]# print as %.2f number.
+utilizations = [100]#[90, 70] # machine utilization level.
 
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
+applications = ['stencil']#['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
 messageSizes = [1000]#[10**x for x in range(1,6)]# not useful in fft. overwritten by workloads.
 messageIters = [1]#[2**x for x in range(10)]# overwritten by workloads.
-expIters = 10# iteration time of each experiment.
+expIters = 1# iteration time of each experiment.
 
-multipleRandomOrder = True# whether to have multiple cases of random allocation order through the expIters.
+multipleRandomOrder = False# whether to have random allocation orders through the expIters.
 
 if mode == 'run':
     traceModes = ['corner']# corner, random, order.
     if 'random' in traceModes:
         multipleRandomOrder = False
     allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
-    hybridFolder = 'machine_4_8_33_2'# avoided by isolated.
-    specificCornerCases = [69]#[1,2,3,18,6,22,26,27]
+    hybridFolder = 'allocOrder'# avoided by isolated.
+    specificCornerCases = range(1100,1200)#[1,2,3,18,6,22,26,27]
     modifyiters = []#[340,114,43,20,7,3]
     randomNum = 1000# only used for random workload.
 
@@ -176,7 +176,7 @@ def main():
                                     simfileName = name1 + '.sim'
                                     simfileNames.append(simfileName)
                                     if traceMode != 'random' and traceMode != 'order':
-                                        generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
+                                        generateSimfile(simfileName, application, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, messageSize,
                                                 graphName='empty', phaseName=phasefileName, runtime=1000)
                                     if mode == 'gen' and traceMode == 'random':
                                         generateSimfile(simfileName, nodesToAlloc, nodeOneRouter, routersPerGroup, groupNum, traceMode, traceNum, 
@@ -202,7 +202,7 @@ def main():
                                                             submit_job(options)
                                                             if runOnlyOne:
                                                                 sys.exit(0)
-                                elif multipleRandomOrder:# just move the for loop of expIter to the front and add expIter label to files.
+                                elif multipleRandomOrder:# every iteration generate a different simfile, used for shuffled allocation order.
                                     for expIter in range(expIters):
                                         simfileName = name1 + '_%d.sim' % expIter
                                         simfileNames.append(simfileName)
@@ -1333,15 +1333,28 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
             writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 2, 0, 64, 100000, 2)
         elif traceNum == 71:
             writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 2, 0, 64, 1000, 2)
-        elif traceNum == 72:
+        elif traceNum == 72:# probably mesIter=2 is problematic for some applications.
             writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 2, 0, 64, 100000, 2)
+        elif traceNum == 73:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 4, 0, 64, 100000, 4)
+        elif traceNum == 74:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 4, 0, 64, 10000, 4)
+        elif traceNum == 75:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 4, 0, 64, 1000, 4)
+        elif traceNum == 76:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 10000, 4, 0, 64, 1000, 4)
+        elif traceNum == 77:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 4, 0, 64, 1000, 4)
+        elif traceNum == 78:
+            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000000, 4, 0, 64, 1000, 4)
 
         elif (traceNum // 100)==1:# 1ij.
             i = traceNum // 10 - 10
             j = traceNum % 10
             writeTrace('equalNum', nodesToAlloc, simfile, runtime, -1, 2**i, -1, 2**j)
-        elif traceNum >= 1000:# generate random number of two sizes of jobs, should meet the machine utilization level. allocate small jobs first.
-            writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime)
+        elif (traceNum // 1000)==1:# generate random number of two sizes of jobs. first generate two sizes, then generate large number, then small. 
+                                   # Not meeting but limited by utilization level. Allocate small jobs first.
+            writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime, 0, 0, 1000, 1, 0, 0, 1000, 1)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
@@ -1396,10 +1409,17 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
     elif writemode == 'homo':# only one type of jobs.
         jobNum = int(nodesToAlloc/size1)
     elif writemode == 'randomTwoSize':
-        size2 = randint(17, 270)
+        size2 = randint(17, 131)
         jobNum2limit = int(nodesToAlloc/size2)
-        jobNum2 = randint(1, jobNum2limit)
-        size1 = randint(2, 16)
+        nodeLeft = -1
+        while nodeLeft < 4:
+            jobNum2 = randint(1, jobNum2limit)
+            nodeLeft = nodesToAlloc - size2 * jobNum2
+        size1 = randint(4, min(16, nodeLeft))
+        jobNum1limit = int(nodeLeft/size1)
+        jobNum1 = randint(1, jobNum1limit)
+        core = size1 * 2
+        jobNum = jobNum1
 
     if mesIter1 == 'auto':# if want to automatically change the iteration of messages to match the running of both small & large jobs.
         if node == 2:
@@ -1433,6 +1453,9 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
         elif writemode == 'equalNum':# assume size1 <= size2.
             jobNum = int(nodesToAlloc/(size1+size2))
             #jobNum = int(nodesToAlloc/(size1+size2)) + int((nodesToAlloc-(size1+size2)*int(nodesToAlloc/(size1+size2)))/size2)
+        elif writemode == 'randomTwoSize':
+            core = size2 * 2
+            jobNum = jobNum2
 
         if mesIter2 == 'auto':
             if node == 2:
@@ -1459,6 +1482,7 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
 
     if randomOrder == True:
         shuffle(strings)# randomized the allocation order.
+    #strings.reverse()# use this to reverse allocation order.
     for string in strings:
         simfile.write(string)
 
