@@ -33,7 +33,7 @@ mode = sys.argv[1]
 
 if mode in ['hybrid', 'hybridAll']:
     distrPara = []
-    hybridFolder = 'allocOrder'
+    hybridFolder = 'heavySmall4'
     #hybridName = hybridFolder + '.csv'
     distrPara.append(sys.argv[2])
     distrPara.append(sys.argv[3])

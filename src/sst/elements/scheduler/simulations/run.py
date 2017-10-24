@@ -43,13 +43,13 @@ mode = sys.argv[1]# gen, empty, run.
 nodeOneRouters = [4]
 routersPerGroups = [4]
 groupNums = [17]# use 3G for 65-group.
-alphas = [1]#[4, 1, 0.25]# print as %.2f number.
+alphas = [10]#[4, 1, 0.25]# print as %.2f number.
 utilizations = [100]#[90, 70] # machine utilization level.
 
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['stencil']#['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
+applications = ['alltoall']#['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
 messageSizes = [1000]#[10**x for x in range(1,6)]# not useful in fft. overwritten by workloads.
 messageIters = [1]#[2**x for x in range(10)]# overwritten by workloads.
 expIters = 1# iteration time of each experiment.
@@ -61,8 +61,8 @@ if mode == 'run':
     if 'random' in traceModes:
         multipleRandomOrder = False
     allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
-    hybridFolder = 'allocOrder'# avoided by isolated.
-    specificCornerCases = range(1100,1200)#[1,2,3,18,6,22,26,27]
+    hybridFolder = 'heavySmall4'# avoided by isolated.
+    specificCornerCases = range(2000,2100)#[1,2,3,18,6,22,26,27]
     modifyiters = []#[340,114,43,20,7,3]
     randomNum = 1000# only used for random workload.
 
@@ -1355,6 +1355,8 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
         elif (traceNum // 1000)==1:# generate random number of two sizes of jobs. first generate two sizes, then generate large number, then small. 
                                    # Not meeting but limited by utilization level. Allocate small jobs first.
             writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime, 0, 0, 1000, 1, 0, 0, 1000, 1)
+        elif (traceNum // 1000)==2:
+            writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime, 0, 0, 100000, 1, 0, 0, 100, 1)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
