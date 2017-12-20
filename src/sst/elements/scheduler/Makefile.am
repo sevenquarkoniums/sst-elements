@@ -68,6 +68,8 @@ libscheduler_la_SOURCES = \
     allocators/DflyHybridBFAllocator.h \
     allocators/DflyHybridThres2Allocator.cc \
     allocators/DflyHybridThres2Allocator.h \
+    allocators/DflyHybridRnAllocator.cc \
+    allocators/DflyHybridRnAllocator.h \
     allocators/DflyRDGAllocator.cc \
     allocators/DflyRDGAllocator.h \
     allocators/DflyRDRAllocator.cc \

@@ -1,25 +1,36 @@
 #!/usr/bin/env python
 '''
-Created by  : Yijia Zhang
+2016 - 2017
 Description : create workload and run a batch of sst jobs.
 
+Allocations are defined in ../allocators/
+Communication patterns are defined in ../../ember/ember.cc, and designed in ../../ember/mpi/motifs/
+
 run by:
+    ./run.py run
+        :run workload.
+    ./run.py run -f
+        :force run. replace existing experiments.
+    ./run.py run -c
+        :generate files but not run experiments.
+    The following are obsolete.
     ./run.py gen 1000
         :generate the random workloads.
     ./run.py empty
         :run single job on empty machine to get the baseline communication time.
-    ./run.py run
-        :run workload.
 
 ### TODO ###
 
 ### warning ###
-Original ember output are modified for our task.
-test with isolated=True before running new parameters.
-opticalsPerRouter cannot be odd number for no reason.
-allpingpong cannot work well for small mesIter.
-adaptive iterations only work for alltoall 1000.
-41 group experiments may fail due to memory 2G.
+1. Original ember output are all modified to output desired communication time for our task.
+2. test with isolated=True before running new parameters.
+3. opticalsPerRouter cannot be odd number for no reason.
+4. fft cannot change its message size.
+5. broadcast's message size is changed by a strange parameter. May not be a correct way to change its communication intensity.
+6. Should use more iterations (2 won't work) in high intensity experiments.
+7. allpingpong cannot work well for small mesIter.
+8. obsolete adaptive iterations only work for alltoall 1000.
+9. memory are always increasing during simulation. 41 group experiments may fail due to memory 2G. 4,8,4 experiments can work well with 2G.
 
 '''
 import sys
@@ -34,36 +45,38 @@ if useMoreMemory:
     memory = 3
 
 #----- debug variables -----#
-runOnlyOne = False# submit only the first loop.
+runOnlyOne = False# submit only the first loop and stop.
 isolated = False# whether to use the isolated/ folder to generate output files.
 
 #----- simulation parameters -----#
 mode = sys.argv[1]# gen, empty, run.
 
+# these three lists should have the same length.
 nodeOneRouters = [4]
 routersPerGroups = [4]
 groupNums = [17]# use 3G for 65-group.
+
 alphas = [10]#[4, 1, 0.25]# print as %.2f number.
 utilizations = [100]#[90, 70] # machine utilization level.
 
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
 schedulers = ['easy']
-applications = ['alltoall']#['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
-messageSizes = [1000]#[10**x for x in range(1,6)]# not useful in fft. overwritten by workloads.
-messageIters = [1]#[2**x for x in range(10)]# overwritten by workloads.
+applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
+messageSizes = [1000]# not useful in fft. overwritten by workload traces in writeTrace().
+messageIters = [1]# overwritten by workloads.
 expIters = 1# iteration time of each experiment.
 
-multipleRandomOrder = False# whether to have random allocation orders through the expIters.
+multipleRandomOrder = False# whether to have random allocation orders through the expIters. This will shuffle the workload trace.
 
 if mode == 'run':
-    traceModes = ['corner']# corner, random, order.
+    traceModes = ['corner']# corner, random, order.# only corner is used for IPDPS.
     if 'random' in traceModes:
         multipleRandomOrder = False
     allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
-    hybridFolder = 'heavySmall4'# avoided by isolated.
-    specificCornerCases = range(2000,2100)#[1,2,3,18,6,22,26,27]
-    modifyiters = []#[340,114,43,20,7,3]
+    hybridFolder = 'heavySmall4'# the folder name for these simulations. # disregarded by isolated.
+    specificCornerCases = range(2000,2100)#IPDPS:[64,66,69,70,71,72,and >1000] #SC:[1,2,3,18,6,22,26,27]
+    modifyiters = []#obsolete. [340,114,43,20,7,3]
     randomNum = 1000# only used for random workload.
 
 elif mode == 'empty':
