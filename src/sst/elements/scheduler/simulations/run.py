@@ -56,8 +56,8 @@ nodeOneRouters = [4]
 routersPerGroups = [4]
 groupNums = [17]# use 3G for 65-group.
 
-alphas = [10]#[4, 1, 0.25]# print as %.2f number.
-utilizations = [100]#[90, 70] # machine utilization level.
+alphas = [1]#[4, 1, 0.25]# print as %.2f number.
+utilizations = [90]#[90, 70] # machine utilization level.
 
 mappers = ['topo'] # if want to change this, need to change the sst input file.
 routings = ['adaptive_local']#['minimal', 'valiant', 'adaptive_local']
@@ -65,17 +65,19 @@ schedulers = ['easy']
 applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']# remove fft when use large messageSize.
 messageSizes = [1000]# not useful in fft. overwritten by workload traces in writeTrace().
 messageIters = [1]# overwritten by workloads.
-expIters = 1# iteration time of each experiment.
+expIters = 10# iteration time of each experiment.
 
 multipleRandomOrder = False# whether to have random allocation orders through the expIters. This will shuffle the workload trace.
+
+newTrackFile = True
 
 if mode == 'run':
     traceModes = ['corner']# corner, random, order.# only corner is used for IPDPS.
     if 'random' in traceModes:
         multipleRandomOrder = False
     allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#,'dflyhybridbf','dflyhybridthres2','dflyhybridrn']
-    hybridFolder = 'heavySmall4'# the folder name for these simulations. # disregarded by isolated.
-    specificCornerCases = range(2000,2100)#IPDPS:[64,66,69,70,71,72,and >1000] #SC:[1,2,3,18,6,22,26,27]
+    hybridFolder = 'netstat'# the folder name for these simulations. # disregarded by isolated.
+    specificCornerCases = [69]#IPDPS:[64,66,69,70,71,72,and >1000] #SC:[1,2,3,18,6,22,26,27]
     modifyiters = []#obsolete. [340,114,43,20,7,3]
     randomNum = 1000# only used for random workload.
 
@@ -98,6 +100,11 @@ env_script = "/mnt/nokrb/zhangyj/SST/exportSST.sh" # only modifys the environmen
 
 useUnstrMotif = False# not recommended.
 emberSimulation = True
+
+if newTrackFile:
+    trackGen = open('gen_%s.csv' % hybridFolder, 'w')
+    trackGen.write('trace,app1,num1,size1,mesSize1,mesIter1,app2,num2,size2,mesSize2,mesIter2\n')
+    trackGen.close()
 
 import os, sys
 import pandas as pd
@@ -165,6 +172,8 @@ def main():
                                 for modifyiter in modifyiters:
                                     modifyname = '%s_mesSize%d_mesIter%d.phase' % (application, messageSize, modifyiter)
                                     generatePhasefile(modifyname, application, messageSize, modifyiter)
+                        elif application == 'random':
+                            phasefileName = 'none'
                         for traceMode in traceModes:
                             if traceMode == 'corner':
                                 traceNumSet = specificCornerCases
@@ -1341,7 +1350,7 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
         elif traceNum == 68:
             writeTrace('homo', False, application, nodesToAlloc, simfile, runtime, 0, int(nodesToAlloc/4), messageSize, 1)# should use uti 100%.
         elif traceNum == 69:
-            writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 2, 0, 64, 1000, 2)# the default messageSize are overwritten.
+            writeTrace(traceNum, 'equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 1000, 2, 0, 64, 1000, 2)# the default messageSize are overwritten.
         elif traceNum == 70:
             writeTrace('equalNum', False, application, nodesToAlloc, simfile, runtime, 0, 16, 100000, 2, 0, 64, 100000, 2)
         elif traceNum == 71:
@@ -1367,9 +1376,9 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
             writeTrace('equalNum', nodesToAlloc, simfile, runtime, -1, 2**i, -1, 2**j)
         elif (traceNum // 1000)==1:# generate random number of two sizes of jobs. first generate two sizes, then generate large number, then small. 
                                    # Not meeting but limited by utilization level. Allocate small jobs first.
-            writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime, 0, 0, 1000, 1, 0, 0, 1000, 1)
-        elif (traceNum // 1000)==2:
-            writeTrace('randomTwoSize', False, application, nodesToAlloc, simfile, runtime, 0, 0, 100000, 1, 0, 0, 100, 1)
+            writeTrace(traceNum, 'randomTwoSize', False, application, nodesToAlloc, simfile, runtime, 0, 0, 1000, 1, 0, 0, 1000, 1)
+        elif (traceNum // 1000)==2:# generate random two sizes of jobs of random types.
+            writeTrace(traceNum, 'randomTwoSize', False, 'random', nodesToAlloc, simfile, runtime, 0, 0, 1000, 1, 0, 0, 1000, 1)
 
     elif traceMode == 'random':
         freeNode = nodesToAlloc
@@ -1407,14 +1416,21 @@ def generateSimfile(simName, application, nodesToAlloc, nodeOneRouter, routersPe
     simfile.close()
     print('tracefile %s generated.' % simName)
 
-def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runtime, num1=0, size1=0, mesSize1=0, mesIter1=0, num2=0, size2=0, mesSize2=0, mesIter2=0):
+def writeTrace(traceNum, writemode, randomOrder, application, nodesToAlloc, simfile, runtime, num1=0, size1=0, mesSize1=0, mesIter1=0, num2=0, size2=0, mesSize2=0, mesIter2=0):
     from random import shuffle
     from random import randint
+    from random import choice
+    trackGen = open('gen_%s.csv' % hybridFolder, 'a')
+
     strings = []
+    allApps = ['halo2d','halo3d','bcast','halo3d26','alltoall']# used for random.choice().
     if application == 'stencil':
         application = 'halo3d'
+    randomType = True if application == 'random' else False
 
     # first size.
+    if randomType:
+        application = choice(allApps)
     node = size1
     core = node * 2
     if writemode == 'fixed':
@@ -1427,10 +1443,10 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
         size2 = randint(17, 131)
         jobNum2limit = int(nodesToAlloc/size2)
         nodeLeft = -1
-        while nodeLeft < 4:
+        while nodeLeft < 2:
             jobNum2 = randint(1, jobNum2limit)
             nodeLeft = nodesToAlloc - size2 * jobNum2
-        size1 = randint(4, min(16, nodeLeft))
+        size1 = randint(2, min(16, nodeLeft))
         jobNum1limit = int(nodeLeft/size1)
         jobNum1 = randint(1, jobNum1limit)
         core = size1 * 2
@@ -1458,8 +1474,11 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
     for ijob in range(jobNum):
         simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
         strings.append(simLine)
+    trackGen.write('%d,%s,%d,%d,%d,%d,' % (traceNum, application, jobNum, size1, mesSize1, mesIter1))
 
     # second size.
+    if randomType:
+        application = choice(allApps)
     if writemode != 'homo':
         node = size2
         core = node * 2
@@ -1494,12 +1513,15 @@ def writeTrace(writemode, randomOrder, application, nodesToAlloc, simfile, runti
         for ijob in range(jobNum):
             simLine = '0 %d %d -1 phase phase_files/%s\n' % (core, runtime, phaseName2)
             strings.append(simLine)
+        trackGen.write('%s,%d,%d,%d,%d\n' % (application, jobNum, size2, mesSize2, mesIter2))
 
     if randomOrder == True:
         shuffle(strings)# randomized the allocation order.
     #strings.reverse()# use this to reverse allocation order.
     for string in strings:
         simfile.write(string)
+
+    trackGen.close()
 
 def orderedSimfile(simName, traceNum, phaseName, runtime):
     '''

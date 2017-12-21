@@ -6,6 +6,8 @@ read baseline and hybrid simulation results and process them.
 used to read the 128 shuffle and find out how many shuffle is good enough and showing a normal distribution.
 
 run by:
+./read.py hybridAll
+    :read separate times of all the jobs in hybrid workload. Baseline times are not needed for this.
 ./read.py readSize stencil
     :read all the job size encountered in the results.
 ./read.py empty
@@ -13,9 +15,7 @@ run by:
 ./read.py analyzeEmpty
     :compare and find the minimum and summarize these baseline communication time.
 ./read.py hybrid
-./read.py hybridAll
-    :read separate times of all the jobs in hybrid workload. Baseline times are not needed for this.
-./read.py statistics
+./read.py stat
     :read network port statistics.
 ./read.py isolated
 ./read.py separate
@@ -33,11 +33,11 @@ mode = sys.argv[1]
 
 if mode in ['hybrid', 'hybridAll']:
     distrPara = []
-    hybridFolder = 'heavySmall4'
-    #hybridName = hybridFolder + '.csv'
-    distrPara.append(sys.argv[2])
-    distrPara.append(sys.argv[3])
-    hybridName = hybridFolder + '_%s_%s.csv' % (distrPara[0],distrPara[1])
+    hybridFolder = 'mixType'
+    hybridName = hybridFolder + '.csv'
+    #distrPara.append(sys.argv[2])
+    #distrPara.append(sys.argv[3])
+    #hybridName = hybridFolder + '_%s_%s.csv' % (distrPara[0],distrPara[1])
 
 import datetime
 now = datetime.datetime.now()
@@ -93,9 +93,10 @@ def main():
         draw(df, groupNum=17, routersPerGroup=4, nodesPerRouter=4, utilization=75, application='alltoall', messageSize=100000, messageIter=2, 
                 traceMode='corner', scheduler='easy', routing='adaptive', alpha=1)
 
-    elif mode == 'statistics':
-        df = getStat()
-        df.to_csv('more_bcast_stat.csv', index=False)
+    elif mode == 'stat':
+        folderName = 'netstat'
+        df = getStat(folderName)
+        df.to_csv('%s_stat.csv' % folderName, index=False)
 
 #=========================
     #readBaseline('Baseline_R4G17')
@@ -113,33 +114,35 @@ def main():
     #    dfMatlab.to_csv('%s/%s_matlab_%.1f.csv' % (mainFolderName, folder, selAlpha), index=False)
     print('finished in %d seconds.' % (datetime.datetime.now()-now).seconds)
 
-def getStat():
+def getStat(folderName):
     '''
     read network statistics.
     only work for special results.
-    only use expIter==0.
     '''
+    applications = ['halo2d','fft','stencil','bcast','halo3d26','alltoall']
     stat = pd.DataFrame(columns=['groupNum','routersPerGroup','nodesPerRouter','utilization','application','messageSize','messageIter',
         'traceMode','traceNum','allocation','taskmapping','scheduler','routing','alpha','expIter','router','portType',
         'send_bit_count','send_packet_count','output_port_stalls','idle_time'])
-    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid', 'dflyhybridbf', 'dflyhybridthres2']
+    allocations = ['simple', 'random', 'dflyrdr', 'dflyrdg', 'dflyrrn', 'dflyrrr', 'dflyslurm', 'dflyhybrid']#, 'dflyhybridbf', 'dflyhybridthres2']
     traceModes = ['corner']
     for traceMode in traceModes:
         if traceMode == 'corner':
-            traceNumSet = [22,26,27]#[1,2,3,4,5,6,7,14,15]
+            traceNumSet = [69]
         elif traceMode == 'random':
             traceNum = 50
             traceNumSet = range(1, traceNum + 1)
-        for traceNum in traceNumSet:
-            for allocation in allocations:
-                name1 = 'G17R4N4_uti75_bcast_mesSize1000_mesIter1_%s_%d_%s_topo_easy_adaptive_alpha1.00_expIter0' % (traceMode, traceNum, allocation)
-                fname = 'more_bcast/%s/networkStats.csv' % name1
-                readStat(stat, fname, traceMode, traceNum, allocation)
+        for application in applications:
+            for traceNum in traceNumSet:
+                for allocation in allocations:
+                    for expIter in range(1):
+                        name1 = 'G17R4N4_uti90_%s_mesSize1000_mesIter1_%s_%d_%s_topo_easy_adaptive_alpha1.00_expIter%d' % (application, traceMode, traceNum, allocation, expIter)
+                        fname = '%s/%s/networkStats.csv' % (folderName, name1)
+                        readStat(stat, fname, application, traceMode, traceNum, allocation, expIter)
     return stat
 
-def readStat(df, fname, traceMode, traceNum, allocation):
+def readStat(df, fname, application, traceMode, traceNum, allocation, expIter):
     '''
-    only workable for G17R4N4 machines!
+    Parameter only workable for G17R4N4 machines!
     '''
     print(fname)
     one = pd.read_csv(fname,sep=', ',engine='python')
@@ -161,7 +164,7 @@ def readStat(df, fname, traceMode, traceNum, allocation):
                 portType = 'local'
             elif portNum >= 7:
                 portType = 'global'
-            df.loc[len(df),:] = [17,4,4,75,'bcast',1000,1,traceMode,traceNum,allocation,'topo','easy','adaptive',1,0,router,portType,sbc,spc,ops,it]
+            df.loc[len(df),:] = [17,4,4,90,application,1000,1,traceMode,traceNum,allocation,'topo','easy','adaptive',1,expIter,router,portType,sbc,spc,ops,it]
 
 def draw(df, groupNum, routersPerGroup, nodesPerRouter, utilization, application, messageSize, messageIter, traceMode, scheduler, routing, alpha):
     '''
@@ -246,7 +249,6 @@ def inspect(path, mode, distrPara=[], app='nan'):
     '''
     get a table with results from all experiments.
     '''
-    import pandas as pd
     print('getting fileList...')
     fileList = tools.getfiles(path)
     print('reading %s...' % path)
@@ -275,8 +277,6 @@ def inspect(path, mode, distrPara=[], app='nan'):
             nodesPerRouter = int(machine.split('N')[1])
             utilization = int(paraSplit[1].split('uti')[1])
             application = paraSplit[2]
-            if distrPara[1] != application:
-                continue
             messageSize = int(paraSplit[3].split('mesSize')[1])
             messageIter = int(paraSplit[4].split('mesIter')[1])
             traceMode = paraSplit[5]
@@ -284,8 +284,6 @@ def inspect(path, mode, distrPara=[], app='nan'):
             if mode == 'separate' and (routersPerGroup != 4 or traceNum != 7 or traceMode != 'corner'):
                 continue
             allocation = paraSplit[7]
-            if distrPara[0] != allocation:
-                continue
             taskmapping = paraSplit[8]
             scheduler = paraSplit[9]
             routing = paraSplit[10]
