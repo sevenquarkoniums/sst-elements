@@ -33,7 +33,7 @@ mode = sys.argv[1]
 
 if mode in ['hybrid', 'hybridAll']:
     distrPara = []
-    hybridFolder = 'mixType'
+    hybridFolder = 'allocOrder1000'
     hybridName = hybridFolder + '.csv'
     #distrPara.append(sys.argv[2])
     #distrPara.append(sys.argv[3])
@@ -94,7 +94,7 @@ def main():
                 traceMode='corner', scheduler='easy', routing='adaptive', alpha=1)
 
     elif mode == 'stat':
-        folderName = 'netstat'
+        folderName = 'netstat_66'
         df = getStat(folderName)
         df.to_csv('%s_stat.csv' % folderName, index=False)
 
@@ -127,7 +127,7 @@ def getStat(folderName):
     traceModes = ['corner']
     for traceMode in traceModes:
         if traceMode == 'corner':
-            traceNumSet = [69]
+            traceNumSet = [66]
         elif traceMode == 'random':
             traceNum = 50
             traceNumSet = range(1, traceNum + 1)
@@ -135,7 +135,7 @@ def getStat(folderName):
             for traceNum in traceNumSet:
                 for allocation in allocations:
                     for expIter in range(1):
-                        name1 = 'G17R4N4_uti90_%s_mesSize1000_mesIter1_%s_%d_%s_topo_easy_adaptive_alpha1.00_expIter%d' % (application, traceMode, traceNum, allocation, expIter)
+                        name1 = 'G17R4N4_uti90_%s_mesSize10000_mesIter2_%s_%d_%s_topo_easy_adaptive_alpha1.00_expIter%d' % (application, traceMode, traceNum, allocation, expIter)
                         fname = '%s/%s/networkStats.csv' % (folderName, name1)
                         readStat(stat, fname, application, traceMode, traceNum, allocation, expIter)
     return stat
@@ -164,7 +164,7 @@ def readStat(df, fname, application, traceMode, traceNum, allocation, expIter):
                 portType = 'local'
             elif portNum >= 7:
                 portType = 'global'
-            df.loc[len(df),:] = [17,4,4,90,application,1000,1,traceMode,traceNum,allocation,'topo','easy','adaptive',1,expIter,router,portType,sbc,spc,ops,it]
+            df.loc[len(df),:] = [17,4,4,90,application,10000,2,traceMode,traceNum,allocation,'topo','easy','adaptive',1,expIter,router,portType,sbc,spc,ops,it]
 
 def draw(df, groupNum, routersPerGroup, nodesPerRouter, utilization, application, messageSize, messageIter, traceMode, scheduler, routing, alpha):
     '''
